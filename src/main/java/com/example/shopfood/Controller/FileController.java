@@ -38,7 +38,7 @@ public class FileController {
 
     @GetMapping("/image/{fileName}")
     public ResponseEntity<Resource> getImage(@PathVariable String fileName) throws IOException {
-        String UPLOAD_DIR = "C:\\Users\\ADMIN\\IdeaProjects\\shopfood\\shopfood\\uploads\\images";
+        String UPLOAD_DIR = "D:\\Java Sping Boot\\shopfood_V2\\uploads\\images";
         Path filePath = Paths.get(UPLOAD_DIR).resolve(fileName).normalize();
 
         if (!Files.exists(filePath)) {

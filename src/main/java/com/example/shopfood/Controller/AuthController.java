@@ -1,10 +1,11 @@
 package com.example.shopfood.Controller;
 
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-
 import com.example.shopfood.Config.JWT.JwtTokenUtils;
 import com.example.shopfood.Exception.AppException;
 import com.example.shopfood.Exception.ErrorResponseBase;
@@ -14,6 +15,7 @@ import com.example.shopfood.Model.Entity.Users;
 import com.example.shopfood.Model.Request.User.LoginRequest;
 import com.example.shopfood.Model.Request.User.UserRequest;
 import com.example.shopfood.Repository.UserRepository;
+import com.example.shopfood.Service.IFileService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping({"/api"})
@@ -41,59 +39,68 @@ public class AuthController {
     @Autowired
     private UserRepository repository;
     @Autowired
+    private IFileService fileService;
+    @Autowired
     private BCryptPasswordEncoder encoder;
     @Autowired
     private HttpServletRequest httpServletRequest;
     private final Map<String, Integer> loginAttemptMap = new HashMap<>();
     private final Map<String, LocalDateTime> lockoutMap = new HashMap<>();
 
-    @PostMapping({"/login"})
+    @PostMapping("/login")
     public LoginDTO loginJWT(@RequestBody LoginRequest request) {
+
         String username = request.getUsername();
-        LocalDateTime lockoutTime = lockoutMap.get(username);
+        // Khóa theo IP + username
+        String ip = httpServletRequest.getRemoteAddr();
+        String key = username + ":" + ip;
+
+        LocalDateTime lockoutTime = lockoutMap.get(key);
         if (lockoutTime != null && lockoutTime.isAfter(LocalDateTime.now())) {
             throw new AppException(ErrorResponseBase.Login_locked);
-        } else {
-            int loginAttempts = loginAttemptMap.getOrDefault(username, 0);
-            if (loginAttempts >= 5) {
-                LocalDateTime lockoutEndTime = LocalDateTime.now().plusMinutes(10L);
-                lockoutMap.put(username, lockoutEndTime);
-                throw new AppException(ErrorResponseBase.Login_locked);
-            } else {
-                Optional<Users> userOptional = repository.findByUsername(username);
-                if (userOptional.isEmpty()) {
-                    throw new AppException(ErrorResponseBase.Login_username);
-                } else {
-                    Users user = (Users)userOptional.get();
-                    if (!encoder.matches(request.getPassword(), user.getPassword())) {
-                        ++loginAttempts;
-                        loginAttemptMap.put(username, loginAttempts);
-                        if (loginAttempts == 5) {
-                            throw new AppException(ErrorResponseBase.valueOf("số lần đăng nhập còn 1 lần nếu bạn nhập sai lần nữa sẽ bị khóa "));
-                        } else if (loginAttempts >= 5) {
-                            LocalDateTime lockoutEndTime = LocalDateTime.now().plusMinutes(10L);
-                            lockoutMap.put(username, lockoutEndTime);
-                            throw new AppException(ErrorResponseBase.Login_locked);
-                        } else {
-                            throw new AppException(ErrorResponseBase.Login_password);
-                        }
-                    } else {
-                        loginAttemptMap.remove(username);
-                        lockoutMap.remove(username);
-                        LoginDTO loginDTO = new LoginDTO();
-                        BeanUtils.copyProperties(user, loginDTO);
-                        loginDTO.setUserAgent(httpServletRequest.getHeader("User-Agent"));
-                        String token = jwtTokenUtils.createAccessToken(loginDTO);
-                        loginDTO.setToken(token);
-                        return loginDTO;
-                    }
-                }
-            }
         }
+
+        int loginAttempts = loginAttemptMap.getOrDefault(key, 0);
+        if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+            lockoutMap.put(key, LocalDateTime.now().plusMinutes(LOCKOUT_DURATION_MINUTES));
+            throw new AppException(ErrorResponseBase.Login_locked);
+        }
+
+        Optional<Users> userOptional = repository.findByUsername(username);
+        if (userOptional.isEmpty()) {
+            throw new AppException(ErrorResponseBase.Login_locked); // không lộ user
+        }
+
+        Users user = userOptional.get();
+        if (!encoder.matches(request.getPassword(), user.getPassword())) {
+
+            loginAttempts++;
+            loginAttemptMap.put(key, loginAttempts);
+
+            throw new AppException(ErrorResponseBase.Login_locked);
+        }
+
+        // ✅ Login thành công
+        loginAttemptMap.remove(key);
+        lockoutMap.remove(key);
+
+        LoginDTO loginDTO = new LoginDTO();
+        BeanUtils.copyProperties(user, loginDTO);
+
+        if (user.getImage() != null) {
+            String fileName = Paths.get(user.getImage()).getFileName().toString();
+            loginDTO.setImage("http://localhost:8080/files/image/" + fileName);
+        }
+
+        loginDTO.setUserAgent(httpServletRequest.getHeader("User-Agent"));
+        loginDTO.setToken(jwtTokenUtils.createAccessToken(loginDTO));
+
+        return loginDTO;
     }
 
+
     @PostMapping({"/register"})
-    public ResponseEntity<?> registerUser(@RequestBody UserRequest userRequest) {
+    public ResponseEntity<?> registerUser(@ModelAttribute UserRequest userRequest) throws IOException {
         Optional<Users> existingUser = repository.findByUsername(userRequest.getUsername());
         if (existingUser.isPresent()) {
             throw new AppException(ErrorResponseBase.USERNAME_EXISTS);
@@ -108,7 +115,10 @@ public class AuthController {
                 newUser.setPassword(encoder.encode(userRequest.getPassword()));
                 newUser.setUsername(userRequest.getUsername());
                 newUser.setPhone(userRequest.getPhone());
-                newUser.setImage(userRequest.getImage());
+//                newUser.setImage(userRequest.getImage());
+                String imagePath = fileService.uploadImage(userRequest.getImage());
+                newUser.setImage(imagePath);
+
                 newUser.setRole(Role.USER);
                 newUser.setFullName(userRequest.getFullName());
                 repository.save(newUser);

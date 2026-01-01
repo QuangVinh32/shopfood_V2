@@ -39,7 +39,7 @@ public class JwtTokenUtils {
         Date expirationDate = new Date(System.currentTimeMillis() + EXPIRATION);
         String token = Jwts.builder()
                 .setId(String.valueOf(loginDTO.getUserId()))
-                .setSubject(loginDTO.getUsername())
+                .setSubject(loginDTO.getFullName())
                 .setIssuedAt(new Date())
                 .setIssuer(String.valueOf(loginDTO.getUserId()))
                 .setExpiration(expirationDate)
@@ -72,7 +72,7 @@ public class JwtTokenUtils {
                 String user = claims.getSubject();
                 Role role = Role.valueOf(claims.get("authorities").toString());
                 String userAgent = claims.get("user-Agent").toString();
-                loginDto.setUsername(user);
+                loginDto.setFullName(user);
                 loginDto.setRole(role);
                 loginDto.setUserAgent(userAgent);
             } catch (Exception e) {

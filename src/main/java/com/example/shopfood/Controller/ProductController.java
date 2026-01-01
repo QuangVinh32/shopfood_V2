@@ -53,7 +53,6 @@ public class ProductController {
                     .stream()
                     .map(img -> "http://localhost:8080/files/image/" + img.getProductImageName())
                     .toList();
-
             dto.setProductImages(imageUrls);
             return dto;
         });

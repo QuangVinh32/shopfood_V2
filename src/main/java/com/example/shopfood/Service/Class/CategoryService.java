@@ -42,7 +42,6 @@ public class CategoryService implements ICategoryService {
             String imagePath = fileService.uploadImage(request.getCategoryImage());
             category.setCategoryImage(imagePath);
         }
-
         return categoryRepository.save(category);
     }
 

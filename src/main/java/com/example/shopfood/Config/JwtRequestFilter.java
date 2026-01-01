@@ -42,7 +42,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 List<GrantedAuthority> authorities = new ArrayList<>();
                 authorities.add(loginDto.getRole());
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(loginDto.getUsername(), null, authorities);
+                        new UsernamePasswordAuthenticationToken(loginDto.getFullName(), null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 filterChain.doFilter(httpServletRequest, httpServletResponse);
             }

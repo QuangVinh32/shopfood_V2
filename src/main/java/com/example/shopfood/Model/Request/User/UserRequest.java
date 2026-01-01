@@ -3,6 +3,7 @@ package com.example.shopfood.Model.Request.User;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class UserRequest {
@@ -25,7 +26,7 @@ public class UserRequest {
     ) String address;
     private @NotBlank(
             message = "image is required"
-    ) String image;
+    ) MultipartFile image;
     private @NotBlank(
             message = "Phone number is required"
     ) String phone;

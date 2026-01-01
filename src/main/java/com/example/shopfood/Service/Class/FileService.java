@@ -18,7 +18,7 @@ public class FileService implements IFileService {
     public String uploadImage(MultipartFile image) throws IOException {
         String originalFileName = image.getOriginalFilename();
         String format = fileManager.getFormatFile(originalFileName);
-        String UPLOAD_DIR = "C:\\Users\\ADMIN\\IdeaProjects\\shopfood\\shopfood\\uploads\\images";
+        String UPLOAD_DIR = "D:\\Java Sping Boot\\shopfood_V2\\uploads\\images";
         String path = UPLOAD_DIR + "\\" + originalFileName;
 
         // Kiểm tra trong database xem có file trùng tên chưa

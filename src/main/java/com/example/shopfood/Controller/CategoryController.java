@@ -1,6 +1,7 @@
 package com.example.shopfood.Controller;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 
 import com.example.shopfood.Model.DTO.CategoryDTO;
 import com.example.shopfood.Model.Entity.Category;
@@ -31,12 +32,33 @@ public class CategoryController {
     @Autowired
     private ModelMapper mapper;
 
-    @GetMapping({"/get-all"})
+    @GetMapping("/get-all")
     public ResponseEntity<Page<CategoryDTO>> getAllCategories(Pageable pageable) {
+
         Page<Category> categories = categoryService.getAllCategoryPage(pageable);
-        Page<CategoryDTO> categoryDTOs = categories.map((category) -> mapper.map(category, CategoryDTO.class));
+
+        Page<CategoryDTO> categoryDTOs = categories.map(category -> {
+            CategoryDTO dto = new CategoryDTO();
+            dto.setCategoryStatus(String.valueOf(category.getCategoryStatus()));
+
+            if (category.getCategoryImage() != null) {
+                // Lấy mỗi tên file (name.jpg)
+                String fileName = Paths.get(category.getCategoryImage())
+                        .getFileName()
+                        .toString();
+
+                dto.setCategoryImage(
+                        "http://localhost:8080/files/image/" + fileName
+                );
+            }
+
+            return dto;
+        });
+
         return ResponseEntity.ok(categoryDTOs);
     }
+
+
 
     @GetMapping({"/{id}"})
     public ResponseEntity<CategoryDTO> getCategoryById(@PathVariable int id) {
