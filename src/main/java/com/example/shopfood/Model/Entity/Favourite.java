@@ -1,7 +1,5 @@
 package com.example.shopfood.Model.Entity;
-
 import org.hibernate.annotations.CreationTimestamp;
-
 import java.util.Date;
 import jakarta.persistence.*;
 
