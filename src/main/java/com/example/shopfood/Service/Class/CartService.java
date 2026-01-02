@@ -27,13 +27,13 @@ public class CartService implements ICartService {
 
     @Override
     public void addProductToCart(Integer productId) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        if (username == null || username.equalsIgnoreCase("anonymousUser")) {
+        if (fullName == null || fullName.equalsIgnoreCase("anonymousUser")) {
             throw new RuntimeException("You must be logged in to add products to cart");
         }
 
-        Users user = userRepository.findByUsername(username)
+        Users user = userRepository.findByFullName(fullName)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user).orElse(null);

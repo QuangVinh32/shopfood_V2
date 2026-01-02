@@ -72,7 +72,7 @@ public class UserService implements IUserService, UserDetailsService {
 
     @Override
     @Transactional(rollbackOn = {Exception.class})
-    public void CreateUser(UserRequest userRequest) {
+    public void createUser(UserRequest userRequest) {
         if (userRepository.existsByEmail(userRequest.getEmail())) {
             throw new AppException(ErrorResponseBase.DOUBLE_EMAIL_EX);
         } else if (userRepository.existsByUsername(userRequest.getUsername())) {
@@ -92,7 +92,7 @@ public class UserService implements IUserService, UserDetailsService {
 
     @Override
     @Transactional(rollbackOn = {Exception.class})
-    public Users updateUser(Integer userId, UserRequest userRequest) {
+    public void updateUser(Integer userId, UserRequest userRequest) {
         Users users = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorResponseBase.Id_not));
 
@@ -102,7 +102,7 @@ public class UserService implements IUserService, UserDetailsService {
         users.setFullName(userRequest.getFullName());
         users.setEmail(userRequest.getEmail());
         users.setAddress(userRequest.getAddress());
-        return userRepository.save(users);
+        userRepository.save(users);
     }
 
     @Override

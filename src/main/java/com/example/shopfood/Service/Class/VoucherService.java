@@ -1,6 +1,8 @@
 package com.example.shopfood.Service.Class;
+import com.example.shopfood.Model.DTO.VoucherApplyResult;
 import com.example.shopfood.Model.Entity.*;
 import com.example.shopfood.Model.Request.Voucher.CreateVoucher;
+import com.example.shopfood.Model.Request.Voucher.UpdateVoucher;
 import com.example.shopfood.Repository.OrderRepository;
 import com.example.shopfood.Repository.UserRepository;
 import com.example.shopfood.Repository.UserVoucherRepository;
@@ -8,6 +10,7 @@ import com.example.shopfood.Repository.VoucherRepository;
 import com.example.shopfood.Service.IVoucherService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import java.util.Calendar;
 import java.util.Date;
@@ -15,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@Transactional
 public class VoucherService implements IVoucherService {
 
     @Autowired
@@ -29,98 +33,255 @@ public class VoucherService implements IVoucherService {
     @Autowired
     private OrderRepository orderRepository;
 
+    // ================= CREATE =================
     @Override
     @Transactional
     public Voucher createVoucher(CreateVoucher request) {
-        Voucher voucher = getVoucher(request);
-        Voucher savedVoucher = voucherRepository.save(voucher);
 
-        // Gán voucher cho danh sách user được chọn
-        if (request.getUserIds() != null) {
-            for (Integer userId : request.getUserIds()) {
-                Users user = userRepository.findById(userId)
-                        .orElseThrow(() -> new RuntimeException("User không tồn tại ID: " + userId));
-
-                UserVoucher uv = new UserVoucher();
-                uv.setUser(user);
-                uv.setVoucher(savedVoucher);
-                uv.setAssignedAt(new Date());
-                userVoucherRepository.save(uv);
-            }
-        }
-        return savedVoucher;
-    }
-
-    private static Voucher getVoucher(CreateVoucher request) {
         Voucher voucher = new Voucher();
         voucher.setCode(request.getCode());
         voucher.setDescription(request.getDescription());
+        voucher.setDiscountType(request.getDiscountType());
         voucher.setDiscountValue(request.getDiscountValue());
-        voucher.setUsageLimit(request.getUsageLimit());
-        voucher.setStatus(request.getStatus());
-        voucher.setStartDate(new Date());
+        voucher.setMaxDiscount(request.getMaxDiscount());
+        voucher.setMinOrderValue(request.getMinOrderValue());
+        voucher.setUsageLimitGlobal(request.getUsageLimitGlobal());
+        voucher.setUsageLimitPerUser(request.getUsageLimitPerUser());
+        voucher.setTarget(request.getTarget());
+        voucher.setStatus(VoucherStatus.ACTIVE);
+        voucher.setStartDate(request.getStartDate());
+        voucher.setEndDate(request.getEndDate());
+        voucher = voucherRepository.save(voucher);
 
-        Date now = new Date();
-        voucher.setStartDate(now);
+        if (request.getTarget() == VoucherTarget.USER && request.getUserIds() != null) {
+            for (Integer userId : request.getUserIds()) {
+                Users user = userRepository.findById(userId)
+                        .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(now);
-        calendar.add(Calendar.DAY_OF_MONTH, 15);
-        voucher.setEndDate(calendar.getTime());
+                if (!userVoucherRepository.existsByUserAndVoucher(user, voucher)) {
+                    UserVoucher uv = new UserVoucher();
+                    uv.setUser(user);
+                    uv.setVoucher(voucher);
+                    uv.setAssignedAt(new Date());
+                    userVoucherRepository.save(uv);
+                }
+            }
+        }
         return voucher;
     }
 
-    // Mỗi người dùng chỉ có thể apply mot số voucher nhất định
-    // Khi dùng voucher thì sẽ trừ đi số voucher mà đã sử dụng
-    // Kiểm tra voucher đó còn hạn sử dụng nữa hay không
 
     @Override
-    public List<Voucher> getAll() {
+    @Transactional
+    public Voucher updateVoucher(Integer voucherId, UpdateVoucher request) {
+
+        Voucher voucher = voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new RuntimeException("Voucher không tồn tại"));
+
+        // ===== UPDATE FIELD =====
+        voucher.setDescription(request.getDescription());
+        voucher.setDiscountType(request.getDiscountType());
+        voucher.setDiscountValue(request.getDiscountValue());
+        voucher.setMaxDiscount(request.getMaxDiscount());
+        voucher.setMinOrderValue(request.getMinOrderValue());
+        voucher.setUsageLimitGlobal(request.getUsageLimitGlobal());
+        voucher.setUsageLimitPerUser(request.getUsageLimitPerUser());
+        voucher.setTarget(request.getTarget());
+        voucher.setStatus(request.getStatus());
+        voucher.setStartDate(request.getStartDate());
+        voucher.setEndDate(request.getEndDate());
+
+        // ===== HANDLE USER VOUCHER =====
+        if (request.getTarget() == VoucherTarget.USER) {
+
+            List<UserVoucher> existingUVs =
+                    userVoucherRepository.findAllByVoucher(voucher);
+
+            // danh sách user mới
+            List<Integer> newUserIds = request.getUserIds();
+
+            // 1️⃣ XÓA user không còn
+            for (UserVoucher uv : existingUVs) {
+                if (!newUserIds.contains(uv.getUser().getUserId())) {
+                    userVoucherRepository.delete(uv);
+                }
+            }
+
+            // 2️⃣ THÊM user mới chưa có
+            for (Integer userId : newUserIds) {
+
+                Users user = userRepository.findById(userId)
+                        .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+                boolean exists = existingUVs.stream()
+                        .anyMatch(uv -> uv.getUser().getUserId().equals(userId));
+
+                if (!exists) {
+                    UserVoucher uv = new UserVoucher();
+                    uv.setUser(user);
+                    uv.setVoucher(voucher);
+                    uv.setAssignedAt(new Date());
+                    uv.setUsedCount(0);
+                    userVoucherRepository.save(uv);
+                }
+            }
+
+        } else {
+            // Nếu đổi USER → PUBLIC thì xóa hết user_voucher
+            userVoucherRepository.deleteByVoucher(voucher);
+        }
+
+        return voucherRepository.save(voucher);
+    }
+
+
+
+
+    // ================= APPLY =================
+    @Override
+    @Transactional
+    public VoucherApplyResult applyVoucher(Integer orderId, String code) {
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order không tồn tại"));
+
+        String fullName = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
+
+        Users user = userRepository.findByFullName(fullName)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+        if (!order.getUser().getUserId().equals(user.getUserId()))
+            throw new RuntimeException("Không có quyền áp voucher");
+
+        if (order.getVoucher() != null)
+            throw new RuntimeException("Order đã áp voucher");
+
+        Voucher voucher = voucherRepository.findByCode(code)
+                .orElseThrow(() -> new RuntimeException("Voucher không tồn tại"));
+
+        Date now = new Date();
+
+        // check thời gian
+        if (now.before(voucher.getStartDate()) || now.after(voucher.getEndDate()))
+            throw new RuntimeException("Voucher hết hạn");
+
+        // check trạng thái
+        if (voucher.getStatus() != VoucherStatus.ACTIVE)
+            throw new RuntimeException("Voucher không khả dụng");
+
+        // check min order
+        if (voucher.getMinOrderValue() != null &&
+                order.getTotalAmount() < voucher.getMinOrderValue())
+            throw new RuntimeException("Đơn hàng chưa đạt giá trị tối thiểu");
+
+        // check global usage
+        if (voucher.getUsageLimitGlobal() != null &&
+                voucher.getUsedCount() >= voucher.getUsageLimitGlobal())
+            throw new RuntimeException("Voucher đã hết lượt sử dụng");
+
+        // check user voucher
+        UserVoucher userVoucher = null;
+        if (voucher.getTarget() == VoucherTarget.USER) {
+            userVoucher = userVoucherRepository
+                    .findByUserAndVoucher(user, voucher)
+                    .orElseThrow(() -> new RuntimeException("Voucher không thuộc user"));
+
+            if (voucher.getUsageLimitPerUser() != null &&
+                    userVoucher.getUsedCount() >= voucher.getUsageLimitPerUser())
+                throw new RuntimeException("Bạn đã dùng hết lượt voucher");
+        }
+
+        // ===== TÍNH TIỀN =====
+        int originalAmount = order.getTotalAmount();
+        int discount;
+
+        if (voucher.getDiscountType() == DiscountType.FIXED) {
+            discount = voucher.getDiscountValue();
+        } else {
+            discount = originalAmount * voucher.getDiscountValue() / 100;
+            if (voucher.getMaxDiscount() != null)
+                discount = Math.min(discount, voucher.getMaxDiscount());
+        }
+
+        int finalAmount = Math.max(0, originalAmount - discount);
+
+        // ===== UPDATE ORDER =====
+        order.setVoucher(voucher);
+        order.setTotalAmount(finalAmount); // ✅ CHỈ CẦN DÒNG NÀY
+
+        // ===== UPDATE USAGE =====
+        voucher.setUsedCount(voucher.getUsedCount() + 1);
+
+        if (userVoucher != null) {
+            userVoucher.setUsedCount(userVoucher.getUsedCount() + 1);
+            userVoucher.setLastUsedAt(now);
+            userVoucherRepository.save(userVoucher);
+        }
+
+        orderRepository.save(order);
+        voucherRepository.save(voucher);
+
+        return new VoucherApplyResult(
+                originalAmount,
+                discount,
+                finalAmount
+        );
+    }
+
+
+
+
+    // ================= OTHERS =================
+    @Override
+    public List<Voucher> getAllForAdmin() {
         return voucherRepository.findAll();
     }
 
     @Override
-    @Transactional
-    public void applyVoucher(String code, Order order) {
-        Voucher voucher = voucherRepository.findByCode(code)
-                .orElseThrow(() -> new RuntimeException("Voucher không tồn tại."));
+    public List<Voucher> getAllForUsers() {
 
-        // Kiểm tra hết hạn
-        if (new Date().after(voucher.getEndDate())) {
-            voucher.setStatus(VoucherStatus.EXPIRED);
-            voucherRepository.save(voucher);
-            throw new RuntimeException("Voucher đã hết hạn.");
-        }
+        String fullName = SecurityContextHolder.getContext()
+                .getAuthentication().getName();
 
-        // Kiểm tra trạng thái
-        if (voucher.getStatus() != VoucherStatus.ACTIVE) {
-            throw new RuntimeException("Voucher không khả dụng.");
-        }
+        Users user = userRepository.findByFullName(fullName)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
-        // Kiểm tra lượt sử dụng
-        if (voucher.getUsageLimit() <= 0) {
-            voucher.setStatus(VoucherStatus.DISABLED);
-            voucherRepository.save(voucher);
-            throw new RuntimeException("Voucher đã hết lượt sử dụng.");
-        }
+        Date now = new Date();
 
-        // Gán voucher vào đơn hàng
-        order.setVoucher(voucher);
+        List<Voucher> vouchers = voucherRepository.findByStatus(VoucherStatus.ACTIVE);
 
-        // Trừ lượt sử dụng
-        voucher.setUsageLimit(voucher.getUsageLimit() - 1);
+        return vouchers.stream()
+                .filter(voucher -> {
 
-        // Giảm giá tiền cho đơn hàng
-        Integer originalAmount = order.getTotalAmount();
-        int discountValue = voucher.getDiscountValue();
+                    // 1️⃣ Check thời gian
+                    if (now.before(voucher.getStartDate()) || now.after(voucher.getEndDate()))
+                        return false;
 
-        int finalAmount = Math.max(0, originalAmount - discountValue);
-        order.setTotalAmount(finalAmount);
+                    // 2️⃣ Check global usage
+                    if (voucher.getUsageLimitGlobal() != null &&
+                            voucher.getUsedCount() >= voucher.getUsageLimitGlobal())
+                        return false;
 
-        // Lưu lại cả voucher và order
-        voucherRepository.save(voucher);
-        orderRepository.save(order);
+                    // 3️⃣ Nếu voucher cho USER
+                    if (voucher.getTarget() == VoucherTarget.USER) {
 
+                        Optional<UserVoucher> uvOpt =
+                                userVoucherRepository.findByUserAndVoucher(user, voucher);
+
+                        if (uvOpt.isEmpty())
+                            return false;
+
+                        UserVoucher uv = uvOpt.get();
+
+                        if (voucher.getUsageLimitPerUser() != null &&
+                                uv.getUsedCount() >= voucher.getUsageLimitPerUser())
+                            return false;
+                    }
+
+                    return true;
+                })
+                .toList();
     }
 
     @Override
@@ -130,11 +291,16 @@ public class VoucherService implements IVoucherService {
 
     @Override
     public void deleteVoucher(Integer id) {
-        if (!voucherRepository.existsById(id)) {
-            throw new RuntimeException("Voucher không tồn tại.");
+
+        Voucher voucher = voucherRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Voucher không tồn tại"));
+
+        if (voucher.getUsedCount() > 0) {
+            throw new RuntimeException("Không thể xóa voucher đã được sử dụng");
         }
-        voucherRepository.deleteById(id);
+
+        userVoucherRepository.deleteByVoucher(voucher);
+        voucherRepository.delete(voucher);
     }
+
 }
-
-

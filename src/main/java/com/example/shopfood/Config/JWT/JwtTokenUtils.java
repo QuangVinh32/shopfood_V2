@@ -68,7 +68,6 @@ public class JwtTokenUtils {
                         .build()
                         .parseClaimsJws(token)
                         .getBody();
-
                 String user = claims.getSubject();
                 Role role = Role.valueOf(claims.get("authorities").toString());
                 String userAgent = claims.get("user-Agent").toString();

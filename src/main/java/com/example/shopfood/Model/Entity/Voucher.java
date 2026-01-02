@@ -6,49 +6,70 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.util.Date;
 
 
-@Data
 @Entity
-@Table(
-        name = "vouchers"
-)
+@Table(name = "vouchers")
+@Data
 public class Voucher {
+
     @Id
-    @GeneratedValue(
-            strategy = GenerationType.IDENTITY
-    )
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "voucher_id")
     private Integer voucherId;
-    @Column(
-            name = "code"
-    )
+
+    @Column(unique = true, nullable = false, length = 50)
     private String code;
-    @Column(
-            name = "description"
-    )
+
+    @Column(length = 255)
     private String description;
-    @CreationTimestamp
-    @Column(
-            name = "start_date",
-            nullable = false,
-            updatable = false
-    )
-    private Date startDate;
-    @Column(
-            name = "end_date"
-    )
-    private Date endDate;
-    @Column(
-            name = "usage_limit"
-    )
-    private Integer usageLimit;
+
     @Enumerated(EnumType.STRING)
-    @Column(
-            name = "status",
-            nullable = false,
-            length = 15
-    )
-    private VoucherStatus status;
-    @Column(
-            name = "discount_value"
-    )
+    @Column(nullable = false)
+    private DiscountType discountType;
+
+    @Column(nullable = false)
     private Integer discountValue;
+
+    private Integer maxDiscount; // dùng cho %
+
+    private Integer minOrderValue;
+
+    @Enumerated(EnumType.STRING)
+    private VoucherScope scope = VoucherScope.ORDER;
+
+    @Enumerated(EnumType.STRING)
+    private VoucherTarget target = VoucherTarget.ALL;
+
+    // Tổng số lượt dùng toàn hệ thống
+    private Integer usageLimitGlobal;
+
+    // Mỗi user dùng tối đa bao nhiêu lần
+    private Integer usageLimitPerUser;
+
+    private Integer usedCount = 0;
+
+    @Enumerated(EnumType.STRING)
+    private VoucherStatus status = VoucherStatus.DRAFT;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date startDate;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date endDate;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date createdAt;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = new Date();
+        updatedAt = new Date();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = new Date();
+    }
 }

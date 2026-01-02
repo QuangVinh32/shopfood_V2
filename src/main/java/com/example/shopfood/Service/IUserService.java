@@ -17,9 +17,9 @@ public interface IUserService {
 
     Optional<Users> getUserById(Integer userId);
 
-    void CreateUser(UserRequest userRequest);
+    void createUser(UserRequest userRequest);
 
-    Users updateUser(Integer userId, UserRequest userRequest);
+    void updateUser(Integer userId, UserRequest userRequest);
 
     boolean deleteUser(Integer userId);
 }

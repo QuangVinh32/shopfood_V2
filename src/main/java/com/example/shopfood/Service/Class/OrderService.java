@@ -49,7 +49,7 @@ public class OrderService implements IOrderService {
     }
 
     @Override
-    public OrderDTO getOrderById(int id) {
+    public OrderDTO getOrderById(Integer id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
@@ -75,8 +75,8 @@ public class OrderService implements IOrderService {
     @Override
     @Transactional
     public void createOrder(String voucherCode) throws Exception {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByUsername(username)
+        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByFullName(fullName)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Cart cart = cartRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
@@ -112,11 +112,6 @@ public class OrderService implements IOrderService {
         }
 
         order.setTotalAmount(totalAmount);
-
-        // Áp dụng voucher nếu có
-        if (voucherCode != null && !voucherCode.isBlank()) {
-            voucherService.applyVoucher(voucherCode, order);
-        }
 
         orderRepository.save(order);
 

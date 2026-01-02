@@ -2,46 +2,78 @@ package com.example.shopfood.Controller;
 
 import com.example.shopfood.Model.Entity.Voucher;
 import com.example.shopfood.Model.Request.Voucher.CreateVoucher;
+import com.example.shopfood.Model.Request.Voucher.UpdateVoucher;
 import com.example.shopfood.Service.IVoucherService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/vouchers")
-@RequiredArgsConstructor
+@CrossOrigin("*")
 public class VoucherController {
 
-    private final IVoucherService voucherService;
+    @Autowired
+    private IVoucherService voucherService;
 
-    // Tạo mới voucher
+    // =========================
+    // CREATE VOUCHER
+    // =========================
     @PostMapping
-    public ResponseEntity<Voucher> createVoucher(@RequestBody CreateVoucher request) {
+    public ResponseEntity<Voucher> createVoucher(
+            @Valid @RequestBody CreateVoucher request
+    ) {
         Voucher voucher = voucherService.createVoucher(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(voucher);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Voucher> updateVoucher(
+            @PathVariable Integer id,
+            @Valid @RequestBody UpdateVoucher request
+    ) {
+        Voucher voucher = voucherService.updateVoucher(id, request);
         return ResponseEntity.ok(voucher);
     }
 
-    // Lấy tất cả voucher
-    @GetMapping
-    public ResponseEntity<List<Voucher>> getAllVouchers() {
-        List<Voucher> vouchers = voucherService.getAll();
-        return ResponseEntity.ok(vouchers);
+
+    // =========================
+    // GET ALL VOUCHERS
+    // =========================
+    @GetMapping("/admin")
+    public ResponseEntity<List<Voucher>> getAllVouchersForAdmin() {
+        return ResponseEntity.ok(voucherService.getAllForAdmin());
+    }
+    @GetMapping("/user")
+    public ResponseEntity<List<Voucher>> getAllVouchersForUsers() {
+        return ResponseEntity.ok(voucherService.getAllForUsers());
     }
 
-    // Lấy voucher theo mã code
+    // =========================
+    // GET VOUCHER BY CODE
+    // =========================
     @GetMapping("/{code}")
-    public ResponseEntity<Voucher> getVoucherByCode(@PathVariable String code) {
+    public ResponseEntity<Voucher> getVoucherByCode(
+            @PathVariable String code
+    ) {
         return voucherService.getVoucherByCode(code)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Xoá voucher theo ID
+    // =========================
+    // DELETE VOUCHER
+    // =========================
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteVoucher(@PathVariable Integer id) {
+    public ResponseEntity<?> deleteVoucher(
+            @PathVariable Integer id
+    ) {
         voucherService.deleteVoucher(id);
-        return ResponseEntity.ok("Voucher đã được xoá.");
+        return ResponseEntity.ok("Xóa voucher thành công");
     }
 }
+

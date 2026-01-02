@@ -14,7 +14,7 @@ public interface IOrderService {
 
     Page<Order> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder);
 
-    OrderDTO getOrderById(int id);
+    OrderDTO getOrderById(Integer id);
 
     void createOrder(String voucherCode) throws Exception;
 

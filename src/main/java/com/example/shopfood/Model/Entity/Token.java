@@ -2,7 +2,6 @@ package com.example.shopfood.Model.Entity;
 import lombok.Data;
 import java.util.Date;
 import jakarta.persistence.*;
-
 @Data
 @Entity
 @Table(

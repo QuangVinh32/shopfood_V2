@@ -1,8 +1,6 @@
 package com.example.shopfood.Model.Entity;
-
 import jakarta.persistence.*;
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -10,8 +8,6 @@ import java.time.LocalDateTime;
 @Data
 public class Notification {
 
-    @Id
-    private Long id;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer notificationId;
