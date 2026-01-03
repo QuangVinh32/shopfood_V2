@@ -2,8 +2,11 @@ package com.example.shopfood.Service.Class;
 
 import com.example.shopfood.Model.Entity.Notification;
 import com.example.shopfood.Model.Entity.NotificationStatus;
+import com.example.shopfood.Model.Entity.NotificationType;
 import com.example.shopfood.Model.Entity.Users;
+import com.example.shopfood.Model.Request.Notification.NotificationRequest;
 import com.example.shopfood.Repository.NotificationRepository;
+import com.example.shopfood.Repository.UserRepository;
 import com.example.shopfood.Service.INotificationService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,9 +21,41 @@ public class NotificationService implements INotificationService {
     @Autowired
     private NotificationRepository notificationRepository;
 
-    @Override
-    public Notification createNotification(Notification notification) {
-        return notificationRepository.save(notification);
+    @Autowired
+    private UserRepository userRepository;
+
+    @Transactional
+    public void createNotification(NotificationRequest request) {
+
+        if (request.getNotificationType() == NotificationType.PRIVATE) {
+            // gửi cho 1 user cụ thể
+            Users user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+            Notification n = new Notification();
+            n.setNotificationType(NotificationType.PRIVATE);
+            n.setTitle(request.getTitle());
+            n.setDescription(request.getDescription());
+            n.setRedirectUrl(request.getRedirectUrl());
+            n.setStatus(NotificationStatus.UNREAD);
+            n.setUser(user);
+
+            notificationRepository.save(n);
+
+        } else if (request.getNotificationType() == NotificationType.PUBLIC) {
+            // gửi cho tất cả user
+            List<Users> users = userRepository.findAll();
+            for (Users user : users) {
+                Notification n = new Notification();
+                n.setNotificationType(NotificationType.PUBLIC);
+                n.setTitle(request.getTitle());
+                n.setDescription(request.getDescription());
+                n.setRedirectUrl(request.getRedirectUrl());
+                n.setStatus(NotificationStatus.UNREAD);
+                n.setUser(user);
+                notificationRepository.save(n);
+            }
+        }
     }
 
     @Override
