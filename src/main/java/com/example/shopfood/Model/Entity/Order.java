@@ -47,11 +47,10 @@ public class Order {
             name = "payment_id"
     )
     private Payment payment;
-    @OneToOne
-    @JoinColumn(
-            name = "voucher_id"
-    )
+    @ManyToOne
+    @JoinColumn(name = "voucher_id")
     private Voucher voucher;
+
     @OneToMany(
             mappedBy = "order",
             cascade = {CascadeType.ALL}

@@ -9,8 +9,12 @@ import jakarta.persistence.*;
 @Data
 @Entity
 @Table(
-        name = "reviews"
+        name = "reviews",
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {"user_id", "product_id"}
+        )
 )
+
 public class Review {
     @Id
     @GeneratedValue(
@@ -33,9 +37,8 @@ public class Review {
             name = "rating"
     )
     private Integer rating;
-    @Column(
-            name = "review_text"
-    )
+    @Column(name = "review_text", length = 1000)
+
     private String reviewText;
     @CreationTimestamp
     @Column(

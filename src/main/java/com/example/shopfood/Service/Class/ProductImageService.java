@@ -1,5 +1,4 @@
 package com.example.shopfood.Service.Class;
-
 import com.example.shopfood.Model.Entity.Product;
 import com.example.shopfood.Model.Entity.ProductImage;
 import com.example.shopfood.Repository.ProductImageRepository;
@@ -9,7 +8,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.IOException;
 
@@ -51,7 +49,7 @@ public class ProductImageService implements IProductImageService {
             throw new IllegalArgumentException("Image does not belong to the specified product");
         }
 
-        // Xóa file vật lý trên ổ cứng (nếu cần)
+//         Xóa file vật lý trên ổ cứng (nếu cần)
 //        File file = new File(image.getProductImagePath());
 //        if (file.exists()) {
 //            file.delete();

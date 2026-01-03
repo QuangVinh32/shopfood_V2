@@ -85,7 +85,7 @@ public class ProductController {
     }
 
     @DeleteMapping({"/{id}"})
-    public ResponseEntity<String> deleteProduct(@PathVariable("id") int id) {
+    public ResponseEntity<String> deleteProduct(@PathVariable int id) {
         try {
             productService.deleteProduct(id);
             return ResponseEntity.ok("Product deleted successfully");
@@ -95,14 +95,14 @@ public class ProductController {
     }
 
     @GetMapping({"admin/{id}"})
-    public ResponseEntity<ProductForAdmin> findProductByIdForAdmin(@PathVariable("id") int id) {
+    public ResponseEntity<ProductForAdmin> findProductByIdForAdmin(@PathVariable int id) {
         ProductForAdmin productDTO = productService.getProductByIdForAdmin(id);
         return productDTO != null ? ResponseEntity.ok(productDTO) : ResponseEntity.status(HttpStatus.NOT_FOUND).body((ProductForAdmin) null);
     }
 
     @GetMapping({"/user/{id}"})
-    public ResponseEntity<ProductForUser> findProductByIdForUser(@PathVariable("id") int id) {
-        System.out.println("Fetching product with ID: " + id);
+    public ResponseEntity<ProductForUser> findProductByIdForUser(@PathVariable int id) {
+//        System.out.println("Fetching product with ID: " + id);
         ProductForUser productDTOv2 = productService.getProductByIdForUser(id);
         if (productDTOv2 != null) {
             return ResponseEntity.ok(productDTOv2);
