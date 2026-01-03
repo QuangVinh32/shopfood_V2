@@ -1,6 +1,7 @@
 package com.example.shopfood.Service.Class;
 import com.example.shopfood.Model.DTO.OrderDTO;
 import com.example.shopfood.Model.DTO.OrderDetailDTO;
+import com.example.shopfood.Model.DTO.OrderGetDTO;
 import com.example.shopfood.Model.Entity.*;
 import com.example.shopfood.Model.Request.Order.UpdateOrder;
 import com.example.shopfood.Model.Request.Order.FilterOrder;
@@ -42,11 +43,22 @@ public class OrderService implements IOrderService {
     @Autowired
     private VoucherService voucherService;
 
+//    @Override
+//    public Page<Order> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder) {
+//        Specification<Order> spec = OrderSpecification.buildSpec(filterOrder);
+//        return orderRepository.findAll(spec, pageable);
+//    }
+
     @Override
-    public Page<Order> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder) {
+    public Page<OrderGetDTO> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder) {
+
         Specification<Order> spec = OrderSpecification.buildSpec(filterOrder);
-        return orderRepository.findAll(spec, pageable);
+
+        Page<Order> page = orderRepository.findAll(spec, pageable);
+
+        return page.map(this::toDTO);
     }
+
 
     @Override
     public OrderDTO getOrderById(Integer id) {
@@ -144,23 +156,56 @@ public class OrderService implements IOrderService {
                 .map(detail -> {
                     Product product = detail.getProduct();
                     return new OrderDetailDTO(
-                            product.getProductId(),
                             product.getProductName(),
                             detail.getQuantity(),
                             detail.getPrice()
                     );
                 })
                 .collect(Collectors.toList());
-
         return new OrderDTO(
                 savedOrder.getOrderId(),
                 savedOrder.getTotalAmount(),
                 savedOrder.getOrderStatus(),
                 savedOrder.getCreatedAt(),
-                savedOrder.getUser().getUserId(),
+                savedOrder.getUser().getFullName(),
                 detailDTOs
         );
     }
+
+
+
+    public OrderGetDTO toDTO(Order order) {
+
+        Users u = order.getUser();
+
+        OrderGetDTO dto = new OrderGetDTO();
+        dto.setOrderId(order.getOrderId());
+        dto.setTotalAmount(order.getTotalAmount());
+        dto.setStatus(order.getOrderStatus());
+        dto.setCreatedAt(order.getCreatedAt());
+
+        dto.setFullName(u.getFullName());
+        dto.setPhone(u.getPhone());
+        dto.setAddress(u.getAddress());
+
+        dto.setOrderDetails(
+                order.getOrderDetails()
+                        .stream()
+                        .map(this::toOrderDetailDTO)
+                        .toList()
+        );
+
+        return dto;
+    }
+
+    private OrderDetailDTO toOrderDetailDTO(OrderDetail od) {
+        OrderDetailDTO dto = new OrderDetailDTO();
+        dto.setProductName(od.getProduct().getProductName());
+        dto.setQuantity(od.getQuantity());
+        dto.setPrice(od.getPrice());
+        return dto;
+    }
+
 
     @Override
     public void deleteOrder(int id) {

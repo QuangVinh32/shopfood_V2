@@ -1,20 +1,23 @@
 package com.example.shopfood.Model.DTO;
 
 import com.example.shopfood.Model.Entity.OrderStatus;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.util.Date;
 import java.util.List;
-@AllArgsConstructor
-@NoArgsConstructor
+
 @Data
-public class OrderDTO {
+public class OrderGetDTO {
     private Integer orderId;
     private Integer totalAmount;
     private OrderStatus status;
     private Date createdAt;
+
+    // USER INFO (ADMIN CẦN)
+//    private Integer userId;
     private String fullName;
+    private String phone;
+    private String address;
+
     private List<OrderDetailDTO> orderDetails;
 }

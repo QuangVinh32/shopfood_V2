@@ -1,6 +1,7 @@
 package com.example.shopfood.Service;
 
 import com.example.shopfood.Model.DTO.OrderDTO;
+import com.example.shopfood.Model.DTO.OrderGetDTO;
 import com.example.shopfood.Model.Entity.Order;
 import com.example.shopfood.Model.Request.Order.FilterOrder;
 import com.example.shopfood.Model.Request.Order.UpdateOrder;
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Service;
 @Service
 public interface IOrderService {
 
-    Page<Order> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder);
+    Page<OrderGetDTO> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder);
 
     OrderDTO getOrderById(Integer id);
 

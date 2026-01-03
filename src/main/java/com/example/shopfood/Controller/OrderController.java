@@ -1,27 +1,19 @@
 package com.example.shopfood.Controller;
 
 import com.example.shopfood.Model.DTO.OrderDTO;
-import com.example.shopfood.Model.DTO.ProductForAdmin;
+import com.example.shopfood.Model.DTO.OrderGetDTO;
 import com.example.shopfood.Model.DTO.VoucherApplyResult;
-import com.example.shopfood.Model.Entity.Order;
-import com.example.shopfood.Model.Entity.Product;
 import com.example.shopfood.Model.Request.Order.FilterOrder;
 import com.example.shopfood.Model.Request.Order.UpdateOrder;
-import com.example.shopfood.Model.Request.Product.FilterProduct;
-import com.example.shopfood.Repository.OrderRepository;
-import com.example.shopfood.Service.Class.OrderService;
-import com.example.shopfood.Service.Class.VoucherService;
 import com.example.shopfood.Service.IOrderService;
 import com.example.shopfood.Service.IVoucherService;
-import lombok.RequiredArgsConstructor;
-import org.apache.catalina.mapper.Mapper;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -46,12 +38,24 @@ public class OrderController {
     }
 
 
-    @GetMapping({"/get-all"})
-    public ResponseEntity<Page<OrderDTO>> findAllOrderPage(Pageable pageable, @ModelAttribute FilterOrder filterOrder) {
-        Page<Order> productsPage = orderService.getAllOrdersPage(pageable, filterOrder);
-        Page<OrderDTO> orderDTOPage = productsPage.map((order) -> mapper.map(order, OrderDTO.class));
-        return ResponseEntity.ok(orderDTOPage);
+//    @GetMapping({"/get-all"})
+//    public ResponseEntity<Page<OrderDTO>> findAllOrderPage(Pageable pageable, @ModelAttribute FilterOrder filterOrder) {
+//        Page<Order> productsPage = orderService.getAllOrdersPage(pageable, filterOrder);
+//        Page<OrderDTO> orderDTOPage = productsPage.map((order) -> mapper.map(order, OrderDTO.class));
+//        return ResponseEntity.ok(orderDTOPage);
+//    }
+
+    @GetMapping("/admin/orders")
+//    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<OrderGetDTO>> getAllOrdersForAdmin(
+            Pageable pageable,
+            FilterOrder filterOrder
+    ) {
+        return ResponseEntity.ok(
+                orderService.getAllOrdersPage(pageable, filterOrder)
+        );
     }
+
 
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestParam(required = false) String voucherCode) {

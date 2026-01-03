@@ -75,5 +75,7 @@ public class VoucherController {
         voucherService.deleteVoucher(id);
         return ResponseEntity.ok("Xóa voucher thành công");
     }
+    // Voucher có thể gỡ khỏi order hay không thì đã add tránh trường hợp
+    // add sai và khi nào cần trạng thái thì để đơn hàng thành công trong quá trình vận chuyển k thể update nữa
 }
 
