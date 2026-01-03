@@ -1,6 +1,5 @@
 package com.example.shopfood.Controller;
-
-import com.example.shopfood.Model.Entity.Notification;
+import com.example.shopfood.Model.DTO.NotificationDTO;
 import com.example.shopfood.Model.Entity.Users;
 import com.example.shopfood.Model.Request.Notification.NotificationRequest;
 import com.example.shopfood.Service.INotificationService;
@@ -23,39 +22,59 @@ public class NotificationController {
     @Autowired
     private UserRepository userRepository;
 
-    @GetMapping
-    public ResponseEntity<List<Notification>> getAllNotifications() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByFullName(username)
+    private Users currentUser() {
+        String username = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        return userRepository.findByFullName(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(notificationService.getNotificationsByUser(user));
     }
 
+    @GetMapping
+    public ResponseEntity<List<NotificationDTO>> getMyNotifications() {
+        return ResponseEntity.ok(
+                notificationService.getMyNotifications(currentUser())
+        );
+    }
 
     @PostMapping
-    public ResponseEntity<String> createNotification(@RequestBody NotificationRequest request) {
+    public ResponseEntity<?> createNotification(
+            @RequestBody NotificationRequest request
+    ) {
         notificationService.createNotification(request);
-        return ResponseEntity.ok("Notification created successfully");
+        return ResponseEntity.ok("Created");
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<Notification> markAsRead(@PathVariable Integer id) {
-        return ResponseEntity.ok(notificationService.markAsRead(id));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteNotification(@PathVariable Integer id) {
-        notificationService.deleteNotification(id);
-        return ResponseEntity.ok("Deleted");
+    public ResponseEntity<NotificationDTO> markAsRead(
+            @PathVariable Integer id
+    ) {
+        return ResponseEntity.ok(
+                notificationService.markAsRead(id, currentUser())
+        );
     }
 
     @PutMapping("/read-all")
     public ResponseEntity<?> markAllAsRead() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByFullName(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        notificationService.markAllAsRead(user);
-        return ResponseEntity.ok("All notifications marked as read");
+        notificationService.markAllAsRead(currentUser());
+        return ResponseEntity.ok("All read");
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(
+            @PathVariable Integer id
+    ) {
+        notificationService.deleteNotification(id, currentUser());
+        return ResponseEntity.ok("Deleted");
+    }
+
+    @GetMapping("/admin")
+    public ResponseEntity<List<NotificationDTO>> adminGetAll() {
+        return ResponseEntity.ok(
+                notificationService.getAllForAdmin()
+        );
     }
 }
+
 

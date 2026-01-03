@@ -49,4 +49,6 @@ public class Notification {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    // Có thể tạo 1 cái key chung để quản lý hàm tạo (như update hay delete theo group)
 }

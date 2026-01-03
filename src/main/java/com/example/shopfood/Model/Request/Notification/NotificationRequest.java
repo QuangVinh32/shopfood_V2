@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 public class NotificationRequest {
-    private NotificationType notificationType; // USER, SYSTEM, ORDER, etc
+    private NotificationType notificationType;
     private String title;
     private String description;
     private String redirectUrl;
