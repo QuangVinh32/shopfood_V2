@@ -2,6 +2,7 @@ package com.example.shopfood.Controller;
 
 import com.example.shopfood.Model.Entity.Notification;
 import com.example.shopfood.Model.Entity.Users;
+import com.example.shopfood.Model.Request.Notification.NotificationRequest;
 import com.example.shopfood.Service.INotificationService;
 import com.example.shopfood.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,9 +31,11 @@ public class NotificationController {
         return ResponseEntity.ok(notificationService.getNotificationsByUser(user));
     }
 
+
     @PostMapping
-    public ResponseEntity<Notification> createNotification(@RequestBody Notification notification) {
-        return ResponseEntity.ok(notificationService.createNotification(notification));
+    public ResponseEntity<String> createNotification(@RequestBody NotificationRequest request) {
+        notificationService.createNotification(request);
+        return ResponseEntity.ok("Notification created successfully");
     }
 
     @PutMapping("/{id}/read")
