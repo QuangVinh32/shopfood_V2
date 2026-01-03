@@ -1,12 +1,16 @@
 package com.example.shopfood.Model.Entity;
+import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import java.util.Date;
 import jakarta.persistence.*;
 
-
+@Data
 @Entity
 @Table(
-        name = "favourites"
+        name = "favourites",
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {"user_id", "product_id"}
+        )
 )
 public class Favourite {
     @Id

@@ -68,8 +68,8 @@ public class WebSecurityConfiguration {
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/products/**").hasAuthority("ADMIN")
 
                         // User-only
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/carts/clear", "/api/v1/carts/remove/{id}", "/api/v1/carts/delete/{id}")
-                        .hasAuthority("USER")
+//                        .requestMatchers(HttpMethod.DELETE, "/api/v1/carts/clear", "/api/v1/carts/remove/{id}", "/api/v1/carts/delete/{id}")
+//                        .hasAuthority("USER,ADMIN")
 
                         // Authenticated users
                         .requestMatchers(HttpMethod.POST, "/api/v1/orders/**", "/api/v1/carts/**", "/api/v1/categories/**", "/api/v1/type/**")
