@@ -56,11 +56,8 @@ public class OrderService implements IOrderService {
 
     @Override
     public Page<OrderGetDTO> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder) {
-
         Specification<Order> spec = OrderSpecification.buildSpec(filterOrder);
-
         Page<Order> page = orderRepository.findAll(spec, pageable);
-
         return page.map(this::toDTO);
     }
 
@@ -82,22 +79,19 @@ public class OrderService implements IOrderService {
             detailDTO.setPrice(detail.getPrice());
             return detailDTO;
         }).collect(Collectors.toList());
-
         dto.setOrderDetails(detailDTOs);
-
         return dto;
     }
 
     // app voucher có hoặc không
+    @Transactional
     @Override
     public void createOrder(String voucherCode) throws Exception {
         String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
         Users user = userRepository.findByFullName(fullName)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         Cart cart = cartRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
-
         if (cart.getCartDetails().isEmpty()) {
             throw new IllegalArgumentException("Giỏ hàng trống");
         }
@@ -107,16 +101,13 @@ public class OrderService implements IOrderService {
         order.setOrderStatus(OrderStatus.PENDING);
         order.setUser(user);
         orderRepository.save(order);
-
         int totalAmount = 0;
 
         // Lưu danh sách cart details để xóa sau
         List<CartDetail> cartDetails = new ArrayList<>(cart.getCartDetails());
-
         for (CartDetail cartDetail : cartDetails) {
             Product product = cartDetail.getProduct();
             ProductSize productSize = cartDetail.getProductSize();
-
             if (productSize == null) {
                 throw new IllegalArgumentException(
                         "Thiếu thông tin size cho sản phẩm: " + product.getProductName()
@@ -144,7 +135,6 @@ public class OrderService implements IOrderService {
             double itemTotal = discountedPrice * cartDetail.getQuantity();
 
             totalAmount += itemTotal;
-
             // TẠO ORDER DETAIL VỚI THÔNG TIN SIZE
             OrderDetail orderDetail = new OrderDetail();
             orderDetail.setOrder(order);
@@ -154,21 +144,17 @@ public class OrderService implements IOrderService {
             orderDetail.setQuantity(cartDetail.getQuantity());
             orderDetail.setPrice(discountedPrice);
             orderDetail.setDiscountApplied(discount);
-
             orderDetailRepository.save(orderDetail);
         }
 
         order.setTotalAmount(totalAmount);
         orderRepository.save(order);
-
         // XÓA GIỎ HÀNG - PHẦN QUAN TRỌNG ĐÃ FIX
         try {
             // 1. Xóa cart details bằng native query
             cartDetailRepository.deleteByCartIdNative(cart.getCartId());
-
             // 2. Xóa cart bằng native query (chắc chắn nhất)
             cartRepository.deleteCartByIdNative(cart.getCartId());  // CẦN THÊM METHOD NÀY
-
             System.out.println("Cart deleted successfully");
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -186,7 +172,6 @@ public class OrderService implements IOrderService {
         // Nếu hủy đơn hàng (từ PENDING -> CANCELLED), hoàn lại số lượng tồn kho THEO SIZE
         if (updateOrder.getStatus() == OrderStatus.CANCELED &&
                 order.getOrderStatus() == OrderStatus.PENDING) {
-
             for (OrderDetail orderDetail : order.getOrderDetails()) {
                 ProductSize productSize = orderDetail.getProductSize();
                 if (productSize != null) {
@@ -201,7 +186,6 @@ public class OrderService implements IOrderService {
         // Nếu từ trạng thái khác về PENDING, trừ lại số lượng THEO SIZE
         if (updateOrder.getStatus() == OrderStatus.PENDING &&
                 order.getOrderStatus() != OrderStatus.PENDING) {
-
             for (OrderDetail orderDetail : order.getOrderDetails()) {
                 ProductSize productSize = orderDetail.getProductSize();
                 if (productSize != null) {
@@ -218,18 +202,15 @@ public class OrderService implements IOrderService {
 
         order.setOrderStatus(updateOrder.getStatus());
         Order savedOrder = orderRepository.save(order);
-
         List<OrderDetailDTO> detailDTOs = savedOrder.getOrderDetails()
                 .stream()
                 .map(detail -> {
                     Product product = detail.getProduct();
                     ProductSize size = detail.getProductSize();
-
                     OrderDetailDTO dto = new OrderDetailDTO();
                     dto.setProductName(product.getProductName());
                     dto.setQuantity(detail.getQuantity());
                     dto.setPrice(detail.getPrice());
-
                     if (size != null) {
                         dto.setSizeName(size.getSizeName().toString());
                         dto.setProductSizeId(size.getProductSizeId());
@@ -238,7 +219,6 @@ public class OrderService implements IOrderService {
                     return dto;
                 })
                 .collect(Collectors.toList());
-
         return new OrderDTO(
                 savedOrder.getOrderId(),
                 savedOrder.getTotalAmount(),
@@ -250,7 +230,6 @@ public class OrderService implements IOrderService {
     }
 
     public OrderGetDTO toDTO(Order order) {
-
         Users u = order.getUser();
         OrderGetDTO dto = new OrderGetDTO();
         dto.setOrderId(order.getOrderId());

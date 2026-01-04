@@ -14,6 +14,7 @@ import com.example.shopfood.Repository.ProductRepository;
 import com.example.shopfood.Repository.ReviewRepository;
 import com.example.shopfood.Service.IFileService;
 import com.example.shopfood.Service.IProductService;
+import com.example.shopfood.Service.IProductSizeService;
 import com.example.shopfood.Specification.ProductSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,9 @@ public class ProductService implements IProductService {
     private IFileService fileService;
     @Autowired
     private ReviewRepository reviewRepository;
+
+    @Autowired
+    private IProductSizeService productSizeService;
 //    @Autowired
 //    private ProductImageRepository productImageRepository;
 
@@ -85,109 +89,83 @@ public class ProductService implements IProductService {
 
 
     @Transactional(rollbackFor = Exception.class)
-    public void createProduct(CreateProduct createProduct) throws Exception {
-        Category category = categoryRepository.findById(createProduct.getCategoryId())
+    public void createProduct(CreateProduct req) throws Exception {
+
+        Category category = categoryRepository.findById(req.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Category not found"));
 
         Product product = new Product();
-        product.setProductName(createProduct.getProductName());
-        product.setDescription(createProduct.getDescription());
+        product.setProductName(req.getProductName());
+        product.setDescription(req.getDescription());
         product.setCategory(category);
 
-        // 1️⃣ xử lý ảnh
+        // 1️⃣ Images
         List<ProductImage> images = new ArrayList<>();
-        if (createProduct.getProductImages() != null) {
-            for (MultipartFile file : createProduct.getProductImages()) {
+        if (req.getProductImages() != null) {
+            for (MultipartFile file : req.getProductImages()) {
                 String path = fileService.uploadImage(file);
                 ProductImage image = new ProductImage();
+                image.setProduct(product);
                 image.setProductImageName(new File(path).getName());
                 image.setProductImagePath(path);
-                image.setProduct(product);
                 images.add(image);
             }
         }
         product.setProductImages(images);
 
-        // 2️⃣ lưu product trước để có productId
+        // 2️⃣ Save product
         productRepository.save(product);
 
-        // 3️⃣ tạo ProductSize
-        List<ProductSize> sizes = new ArrayList<>();
-            if (createProduct.getProductSizes() != null) {
-            for (ProductSize sReq : createProduct.getProductSizes()) {
-                ProductSize size = new ProductSize();
-                size.setProduct(product);
-                size.setSizeName(sReq.getSizeName());
-                size.setPrice(sReq.getPrice());
-                size.setDiscount(sReq.getDiscount());
-                size.setQuantity(sReq.getQuantity());
-                sizes.add(size);
-            }
+        // 3️⃣ GỌI ProductSizeService
+        if (req.getProductSizes() != null) {
+            productSizeService.bulkUpsert(product.getProductId(), req.getProductSizes());
         }
-        product.setSizes(sizes);
-
-        // 4️⃣ lưu product lần nữa để cascade lưu ProductSize
-        productRepository.save(product);
     }
+
 
 
 
     @Transactional(rollbackFor = Exception.class)
-    public void updateProduct(int productId, UpdateProduct updateProduct) throws Exception {
-        Product existingProduct = productRepository.findById(productId)
-                .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + productId));
+    public void updateProduct(int productId, UpdateProduct req) throws Exception {
 
-        // Cập nhật tên
-        if (updateProduct.getProductName() != null) {
-            existingProduct.setProductName(updateProduct.getProductName());
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new EntityNotFoundException("Product not found"));
+
+        if (req.getProductName() != null) {
+            product.setProductName(req.getProductName());
         }
 
-        // Cập nhật mô tả
-        if (updateProduct.getDescription() != null) {
-            existingProduct.setDescription(updateProduct.getDescription());
+        if (req.getDescription() != null) {
+            product.setDescription(req.getDescription());
         }
 
-        // Cập nhật category
-        if (updateProduct.getCategoryId() != null) {
-            Category category = categoryRepository.findById(updateProduct.getCategoryId())
-                    .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + updateProduct.getCategoryId()));
-            existingProduct.setCategory(category);
+        if (req.getCategoryId() != null) {
+            Category category = categoryRepository.findById(req.getCategoryId())
+                    .orElseThrow(() -> new EntityNotFoundException("Category not found"));
+            product.setCategory(category);
         }
 
-        // Cập nhật ảnh
-        if (updateProduct.getProductImages() != null) {
-            List<ProductImage> images = new ArrayList<>();
-            for (MultipartFile file : updateProduct.getProductImages()) {
+        // Images
+        if (req.getProductImages() != null) {
+            product.getProductImages().clear();
+            for (MultipartFile file : req.getProductImages()) {
                 String path = fileService.uploadImage(file);
                 ProductImage image = new ProductImage();
-                image.setProduct(existingProduct);
+                image.setProduct(product);
                 image.setProductImageName(new File(path).getName());
                 image.setProductImagePath(path);
-                images.add(image);
+                product.getProductImages().add(image);
             }
-            existingProduct.getProductImages().clear(); // xóa ảnh cũ
-            existingProduct.getProductImages().addAll(images);
         }
 
-        // Cập nhật size
-        if (updateProduct.getSizes() != null) {
-            // Xóa size cũ
-            existingProduct.getSizes().clear();
-            List<ProductSize> sizes = updateProduct.getSizes().stream().map(s -> {
-                ProductSize size = new ProductSize();
-                size.setProduct(existingProduct);
-                size.setSizeName(ProductSizeEnum.valueOf(s.getSizeName()));
-                size.setPrice(s.getPrice());
-                size.setDiscount(s.getDiscount());
-                size.setQuantity(s.getQuantity());
-                return size;
-            }).toList();
+        productRepository.save(product);
 
-            existingProduct.getSizes().addAll(sizes);
+        // ✅ Update size đúng chỗ
+        if (req.getSizes() != null) {
+            productSizeService.bulkUpsert(productId, req.getSizes());
         }
-
-        productRepository.save(existingProduct);
     }
+
 
 
     public void deleteProduct(int id) {

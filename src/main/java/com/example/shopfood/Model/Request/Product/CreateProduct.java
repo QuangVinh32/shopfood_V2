@@ -15,6 +15,6 @@ public class CreateProduct {
 //    private Integer quantity;
     private Integer categoryId;
     private List<MultipartFile> productImages;
-    private List<ProductSize> productSizes;
+    private List<ProductSizeRequest> productSizes;
 
 }
