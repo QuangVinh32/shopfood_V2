@@ -131,6 +131,11 @@ public class VoucherService implements IVoucherService {
         return voucherRepository.save(voucher);
     }
 
+    @Override
+    public Voucher getValidVoucher(String voucherCode) {
+        return null;
+    }
+
 
     // ================= APPLY =================
     @Override
@@ -274,5 +279,6 @@ public class VoucherService implements IVoucherService {
         userVoucherRepository.deleteByVoucher(voucher);
         voucherRepository.delete(voucher);
     }
+
 
 }

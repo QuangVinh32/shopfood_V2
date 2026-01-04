@@ -29,4 +29,8 @@ public class Cart {
             orphanRemoval = true
     )
     private List<CartDetail> cartDetails;
+
+    @Column(name = "total", nullable = false, columnDefinition = "DOUBLE DEFAULT 0.0")
+    private Double total = 0.0;
+
 }

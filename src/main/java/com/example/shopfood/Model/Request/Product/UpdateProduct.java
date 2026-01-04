@@ -8,10 +8,10 @@ import java.util.List;
 @Data
 public class UpdateProduct {
     private String productName;
-    private List<MultipartFile> productImages;
     private String description;
-    private Double price;
-    private Integer discount;
-    private Integer quantity;
+    private List<MultipartFile> productImages; // update ảnh
+    private List<ProductSizeRequest> sizes;     // update size
     private Integer categoryId;
+
+
 }

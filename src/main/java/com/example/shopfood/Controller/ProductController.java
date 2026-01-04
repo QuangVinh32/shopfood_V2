@@ -1,6 +1,7 @@
 package com.example.shopfood.Controller;
 import com.example.shopfood.Model.DTO.ProductForAdmin;
 import com.example.shopfood.Model.DTO.ProductForUser;
+import com.example.shopfood.Model.DTO.ProductSizeDTO;
 import com.example.shopfood.Model.Entity.Product;
 import com.example.shopfood.Model.Entity.ProductImage;
 import com.example.shopfood.Model.Request.Product.CreateProduct;
@@ -12,6 +13,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +24,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -34,31 +38,53 @@ public class ProductController {
 
     @GetMapping("/get-all")
     public ResponseEntity<Page<ProductForAdmin>> findAllProductPage(
-            Pageable pageable,
+            @PageableDefault(size = 10, sort = "productId") Pageable pageable,
             @ModelAttribute FilterProduct filterProduct) {
 
+        // Lấy page sản phẩm từ service
         Page<Product> productsPage = productService.getAllProductsPage(pageable, filterProduct);
 
+        // Map Product -> ProductForAdmin DTO
         Page<ProductForAdmin> productForAdminPage = productsPage.map(product -> {
             ProductForAdmin dto = new ProductForAdmin();
             dto.setProductId(product.getProductId());
             dto.setProductName(product.getProductName());
             dto.setDescription(product.getDescription());
-            dto.setPrice(product.getPrice());
-            dto.setDiscount(product.getDiscount());
-            dto.setQuantity(product.getQuantity());
-            dto.setCategoryStatus(product.getCategory().getCategoryStatus());
-            //Chuyển path thật -> URL public
-            List<String> imageUrls = product.getProductImages()
-                    .stream()
-                    .map(img -> "http://localhost:8080/files/image/" + img.getProductImageName())
-                    .toList();
+
+            // Category status, check null để tránh lỗi
+            if (product.getCategory() != null) {
+//                dto.setCategoryId(product.getCategory().getCategoryId()); // Thếu dòng này
+                dto.setCategoryStatus(product.getCategory().getCategoryStatus());
+            }
+
+            // Map hình ảnh sang URL
+            List<String> imageUrls = new ArrayList<>();
+            if (product.getProductImages() != null) {
+                imageUrls = product.getProductImages().stream()
+                        .map(img -> "http://localhost:8080/files/image/" + img.getProductImageName())
+                        .toList();
+            }
             dto.setProductImages(imageUrls);
+
+            // Nếu muốn map ProductSize vào DTO (nếu tách size)
+            if (product.getSizes() != null) {
+                List<ProductSizeDTO> sizes = product.getSizes().stream()
+                        .map(size -> new ProductSizeDTO(
+                                size.getSizeName().name(),
+                                size.getPrice(),
+                                size.getDiscount(),
+                                size.getQuantity()
+                        ))
+                        .toList();
+                dto.setSizes(sizes);
+            }
+
             return dto;
         });
 
         return ResponseEntity.ok(productForAdminPage);
     }
+
 
 
 

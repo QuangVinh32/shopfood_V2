@@ -29,7 +29,7 @@ public interface IVoucherService {
     void deleteVoucher(Integer id);
 
     Voucher updateVoucher(Integer voucherId, UpdateVoucher request);
-
+    Voucher getValidVoucher(String voucherCode);
 
 }
 

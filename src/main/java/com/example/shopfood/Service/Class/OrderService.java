@@ -15,6 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -42,6 +44,9 @@ public class OrderService implements IOrderService {
 
     @Autowired
     private VoucherService voucherService;
+
+    @Autowired
+    private  ProductSizeRepository productSizeRepository;
 
 //    @Override
 //    public Page<Order> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder) {
@@ -85,11 +90,11 @@ public class OrderService implements IOrderService {
 
     // app voucher có hoặc không
     @Override
-    @Transactional
     public void createOrder(String voucherCode) throws Exception {
         String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
         Users user = userRepository.findByFullName(fullName)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
         Cart cart = cartRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
 
@@ -104,47 +109,110 @@ public class OrderService implements IOrderService {
         orderRepository.save(order);
 
         int totalAmount = 0;
-        for (CartDetail cartDetail : cart.getCartDetails()) {
+
+        // Lưu danh sách cart details để xóa sau
+        List<CartDetail> cartDetails = new ArrayList<>(cart.getCartDetails());
+
+        for (CartDetail cartDetail : cartDetails) {
             Product product = cartDetail.getProduct();
-            if (product.getQuantity() < cartDetail.getQuantity()) {
-                throw new IllegalArgumentException("Không đủ số lượng sản phẩm: " + product.getProductName());
+            ProductSize productSize = cartDetail.getProductSize();
+
+            if (productSize == null) {
+                throw new IllegalArgumentException(
+                        "Thiếu thông tin size cho sản phẩm: " + product.getProductName()
+                );
             }
 
-            product.setQuantity(product.getQuantity() - cartDetail.getQuantity());
-            productRepository.save(product);
+            // KIỂM TRA TỒN KHO THEO SIZE
+            if (productSize.getQuantity() < cartDetail.getQuantity()) {
+                throw new IllegalArgumentException(
+                        "Không đủ số lượng sản phẩm: " + product.getProductName() +
+                                " - Size: " + productSize.getSizeName() +
+                                " (Còn lại: " + productSize.getQuantity() + ")"
+                );
+            }
 
-            totalAmount += (int) (product.getPrice() * cartDetail.getQuantity());
+            // TRỪ SỐ LƯỢNG TỒN KHO THEO SIZE
+            int newQuantity = productSize.getQuantity() - cartDetail.getQuantity();
+            productSize.setQuantity(newQuantity);
+            productSizeRepository.save(productSize);
 
+            // TÍNH GIÁ THEO SIZE
+            double itemPrice = productSize.getPrice();
+            int discount = productSize.getDiscount() != null ? productSize.getDiscount() : 0;
+            double discountedPrice = itemPrice * (100 - discount) / 100.0;
+            double itemTotal = discountedPrice * cartDetail.getQuantity();
+
+            totalAmount += itemTotal;
+
+            // TẠO ORDER DETAIL VỚI THÔNG TIN SIZE
             OrderDetail orderDetail = new OrderDetail();
             orderDetail.setOrder(order);
             orderDetail.setProduct(product);
+            orderDetail.setProductSize(productSize);
+            orderDetail.setSizeName(productSize.getSizeName().toString());
             orderDetail.setQuantity(cartDetail.getQuantity());
-            orderDetail.setPrice(product.getPrice());
+            orderDetail.setPrice(discountedPrice);
+            orderDetail.setDiscountApplied(discount);
+
             orderDetailRepository.save(orderDetail);
         }
 
         order.setTotalAmount(totalAmount);
-
         orderRepository.save(order);
 
-        // Xóa giỏ hàng
-        for (CartDetail detail : cart.getCartDetails()) {
-            cartDetailRepository.delete(detail);
+        // XÓA GIỎ HÀNG - PHẦN QUAN TRỌNG ĐÃ FIX
+        try {
+            // 1. Xóa cart details bằng native query
+            cartDetailRepository.deleteByCartIdNative(cart.getCartId());
+
+            // 2. Xóa cart bằng native query (chắc chắn nhất)
+            cartRepository.deleteCartByIdNative(cart.getCartId());  // CẦN THÊM METHOD NÀY
+
+            System.out.println("Cart deleted successfully");
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
         }
-        cart.getCartDetails().clear();
-        cartRepository.delete(cart);
     }
+
+
+
 
     @Override
     public OrderDTO updateOrder(int orderID, UpdateOrder updateOrder) throws Exception {
         Order order = orderRepository.findById(orderID)
                 .orElseThrow(() -> new Exception("Order not found"));
 
-        if (updateOrder.getStatus() == OrderStatus.PENDING && order.getOrderStatus() != OrderStatus.PENDING) {
+        // Nếu hủy đơn hàng (từ PENDING -> CANCELLED), hoàn lại số lượng tồn kho THEO SIZE
+        if (updateOrder.getStatus() == OrderStatus.CANCELED &&
+                order.getOrderStatus() == OrderStatus.PENDING) {
+
             for (OrderDetail orderDetail : order.getOrderDetails()) {
-                Product product = orderDetail.getProduct();
-                product.setQuantity(product.getQuantity() + orderDetail.getQuantity());
-                productRepository.save(product);
+                ProductSize productSize = orderDetail.getProductSize();
+                if (productSize != null) {
+                    // HOÀN LẠI SỐ LƯỢNG THEO SIZE
+                    productSize.setQuantity(productSize.getQuantity() + orderDetail.getQuantity());
+                    productSizeRepository.save(productSize);
+                }
+                // KHÔNG CẦN XỬ LÝ Product vì không có quantity
+            }
+        }
+
+        // Nếu từ trạng thái khác về PENDING, trừ lại số lượng THEO SIZE
+        if (updateOrder.getStatus() == OrderStatus.PENDING &&
+                order.getOrderStatus() != OrderStatus.PENDING) {
+
+            for (OrderDetail orderDetail : order.getOrderDetails()) {
+                ProductSize productSize = orderDetail.getProductSize();
+                if (productSize != null) {
+                    if (productSize.getQuantity() < orderDetail.getQuantity()) {
+                        throw new Exception("Không đủ số lượng tồn kho cho: " +
+                                orderDetail.getProduct().getProductName() +
+                                " - Size: " + productSize.getSizeName());
+                    }
+                    productSize.setQuantity(productSize.getQuantity() - orderDetail.getQuantity());
+                    productSizeRepository.save(productSize);
+                }
             }
         }
 
@@ -155,13 +223,22 @@ public class OrderService implements IOrderService {
                 .stream()
                 .map(detail -> {
                     Product product = detail.getProduct();
-                    return new OrderDetailDTO(
-                            product.getProductName(),
-                            detail.getQuantity(),
-                            detail.getPrice()
-                    );
+                    ProductSize size = detail.getProductSize();
+
+                    OrderDetailDTO dto = new OrderDetailDTO();
+                    dto.setProductName(product.getProductName());
+                    dto.setQuantity(detail.getQuantity());
+                    dto.setPrice(detail.getPrice());
+
+                    if (size != null) {
+                        dto.setSizeName(size.getSizeName().toString());
+                        dto.setProductSizeId(size.getProductSizeId());
+                    }
+
+                    return dto;
                 })
                 .collect(Collectors.toList());
+
         return new OrderDTO(
                 savedOrder.getOrderId(),
                 savedOrder.getTotalAmount(),
@@ -172,29 +249,23 @@ public class OrderService implements IOrderService {
         );
     }
 
-
-
     public OrderGetDTO toDTO(Order order) {
 
         Users u = order.getUser();
-
         OrderGetDTO dto = new OrderGetDTO();
         dto.setOrderId(order.getOrderId());
         dto.setTotalAmount(order.getTotalAmount());
         dto.setStatus(order.getOrderStatus());
         dto.setCreatedAt(order.getCreatedAt());
-
         dto.setFullName(u.getFullName());
         dto.setPhone(u.getPhone());
         dto.setAddress(u.getAddress());
-
         dto.setOrderDetails(
                 order.getOrderDetails()
                         .stream()
                         .map(this::toOrderDetailDTO)
                         .toList()
         );
-
         return dto;
     }
 
@@ -205,6 +276,8 @@ public class OrderService implements IOrderService {
         dto.setPrice(od.getPrice());
         return dto;
     }
+
+
 
 
     @Override

@@ -9,7 +9,7 @@ import jakarta.persistence.*;
         name = "cart_detail"
 )
 @IdClass(CartDetailPK.class)
-public class CartDetail {
+public class     CartDetail {
     @Id
     @ManyToOne
     @JoinColumn(
@@ -28,4 +28,9 @@ public class CartDetail {
             nullable = false
     )
     private Integer quantity;
+
+    @Id
+    @ManyToOne // Hoặc @ManyToOne nếu bạn muốn productSize là part của PK
+    @JoinColumn(name = "product_size_id")
+    private ProductSize productSize; // Cần thêm @Id annotation nếu là part của PK
 }

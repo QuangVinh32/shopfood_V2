@@ -11,9 +11,10 @@ public class ProductForAdmin {
     private String productName;
     private List<String> productImages;
     private String description;
-    private Double price;
-    private Integer discount;
-    private Integer quantity;
+//    private Double price;
+//    private Integer discount;
+//    private Integer quantity;
 //    private Integer categoryId;
     private CategoryStatus categoryStatus;
+    private List<ProductSizeDTO> sizes;
 }
