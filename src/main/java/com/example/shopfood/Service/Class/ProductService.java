@@ -60,7 +60,7 @@ public class ProductService implements IProductService {
         ProductForAdmin dto = new ProductForAdmin();
         dto.setProductId(product.getProductId());
         dto.setProductName(product.getProductName());
-        dto.setDescription(product.getDescription());
+//        dto.setDescription(product.getDescription());
         dto.setCategoryStatus(product.getCategory().getCategoryStatus());
 
         // Ảnh
@@ -82,7 +82,7 @@ public class ProductService implements IProductService {
                     return s;
                 })
                 .toList();
-        dto.setSizes(sizeDTOs);
+//        dto.setSizes(sizeDTOs);
 
         return dto;
     }

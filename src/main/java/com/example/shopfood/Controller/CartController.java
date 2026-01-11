@@ -93,7 +93,7 @@ public class CartController {
             @PathVariable Integer quantity) {
         try {
             // Cần thêm phương thức này trong service
-            // cartService.updateProductQuantity(productId, productSizeId, quantity);
+//             cartService.updateProductQuantity(productId, productSizeId, quantity);
             return ResponseEntity.ok("Product quantity updated");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());

@@ -8,10 +8,13 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ReviewRepository extends JpaRepository<Review, Integer>, JpaSpecificationExecutor<Review> {
     List<Review> findByProductProductId(int productId);
     boolean existsByUserAndProduct(Users user, Product product);
+    Optional<Review> findByProductAndUser(Product product, Users user);
+
 
 }

@@ -58,6 +58,8 @@ public class WebSecurityConfiguration {
                                 "/api/products/**",
                                 "/files/image/**",
                                 "/api/categories/**",
+                                "/api/product_sizes/**",
+
                                 "/api/v1/carts/summary"
                         ).permitAll()
 

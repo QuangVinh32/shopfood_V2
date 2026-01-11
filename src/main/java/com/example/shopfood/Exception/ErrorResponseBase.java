@@ -19,9 +19,12 @@ public enum ErrorResponseBase {
     Min_Max(HttpStatus.BAD_REQUEST, "số min phải nhỏ hơn max"),
     Login_username(HttpStatus.BAD_REQUEST, "username không hợp lệ"),
     Login_password(HttpStatus.BAD_REQUEST, "password không hợp lệ"),
-    DOUBLE_EMAIL_EX(HttpStatus.BAD_REQUEST, "email đăng kí  tồn tại hãy chọn email đăng kí khác "),
-    DOUBLE_USERNAME_EX(HttpStatus.BAD_REQUEST, "USERNAME đăng kí  tồn tại hãy chọn USERNAME đăng kí khác "),
-    Login_locked(HttpStatus.LOCKED, "nhập sai quá nhiều lần yêu cầu đăng nhập của bạn bị tạm khóa ");
+    DOUBLE_EMAIL_EX(HttpStatus.BAD_REQUEST, "email đăng kí tồn tại hãy chọn email đăng kí khác "),
+    DOUBLE_USERNAME_EX(HttpStatus.BAD_REQUEST, "USERNAME đăng kí tồn tại hãy chọn USERNAME đăng kí khác "),
+    Login_locked(HttpStatus.LOCKED, "nhập sai quá nhiều lần yêu cầu đăng nhập của bạn bị tạm khóa "),
+    OLD_PASSWORD_INCORRECT(HttpStatus.BAD_REQUEST, "Mật khẩu cũ không chính xác"),
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng");
+
 
     public final HttpStatus status;
     public final String message;

@@ -87,11 +87,11 @@ public class ProductSizeService implements IProductSizeService {
 
     // ================= DELETE =================
 
-    @Override
-    public void delete(Integer sizeId) {
-        ProductSize size = getById(sizeId);
-        productSizeRepository.delete(size);
-    }
+//    @Override
+//    public void delete(Integer sizeId) {
+//        ProductSize size = getById(sizeId);
+//        productSizeRepository.delete(size);
+//    }
 
     // ================= STOCK =================
 

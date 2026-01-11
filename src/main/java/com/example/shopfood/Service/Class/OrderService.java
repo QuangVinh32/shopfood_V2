@@ -115,18 +115,31 @@ public class OrderService implements IOrderService {
             }
 
             // KIỂM TRA TỒN KHO THEO SIZE
-            if (productSize.getQuantity() < cartDetail.getQuantity()) {
+//            if (productSize.getQuantity() < cartDetail.getQuantity()) {
+//                throw new IllegalArgumentException(
+//                        "Không đủ số lượng sản phẩm: " + product.getProductName() +
+//                                " - Size: " + productSize.getSizeName() +
+//                                " (Còn lại: " + productSize.getQuantity() + ")"
+//                );
+//            }
+//
+//            // TRỪ SỐ LƯỢNG TỒN KHO THEO SIZE
+//            int newQuantity = productSize.getQuantity() - cartDetail.getQuantity();
+//            productSize.setQuantity(newQuantity);
+//            productSizeRepository.save(productSize);
+
+            // TRỪ TỒN KHO THEO SIZE - ATOMIC
+            int updated = productSizeRepository.decreaseStock(
+                    productSize.getProductSizeId(),
+                    cartDetail.getQuantity()
+            );
+
+            if (updated == 0) {
                 throw new IllegalArgumentException(
-                        "Không đủ số lượng sản phẩm: " + product.getProductName() +
-                                " - Size: " + productSize.getSizeName() +
-                                " (Còn lại: " + productSize.getQuantity() + ")"
+                        "Không đủ số lượng sản phẩm: " + product.getProductName()
+                                + " - Size: " + productSize.getSizeName()
                 );
             }
-
-            // TRỪ SỐ LƯỢNG TỒN KHO THEO SIZE
-            int newQuantity = productSize.getQuantity() - cartDetail.getQuantity();
-            productSize.setQuantity(newQuantity);
-            productSizeRepository.save(productSize);
 
             // TÍNH GIÁ THEO SIZE
             double itemPrice = productSize.getPrice();

@@ -68,7 +68,7 @@ public class AuthController {
 
         Optional<Users> userOptional = repository.findByUsername(username);
         if (userOptional.isEmpty()) {
-            throw new AppException(ErrorResponseBase.Login_locked); // không lộ user
+            throw new AppException(ErrorResponseBase.Login_locked); 
         }
 
         Users user = userOptional.get();

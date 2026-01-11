@@ -2,6 +2,7 @@ package com.example.shopfood.Controller;
 import com.example.shopfood.Model.DTO.ProductForAdmin;
 import com.example.shopfood.Model.DTO.ProductForUser;
 import com.example.shopfood.Model.DTO.ProductSizeDTO;
+import com.example.shopfood.Model.Entity.CategoryStatus;
 import com.example.shopfood.Model.Entity.Product;
 import com.example.shopfood.Model.Entity.ProductImage;
 import com.example.shopfood.Model.Request.Product.CreateProduct;
@@ -25,7 +26,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -49,12 +52,20 @@ public class ProductController {
             ProductForAdmin dto = new ProductForAdmin();
             dto.setProductId(product.getProductId());
             dto.setProductName(product.getProductName());
-            dto.setDescription(product.getDescription());
+//            dto.setDescription(product.getDescription());
 
             // Category status, check null để tránh lỗi
             if (product.getCategory() != null) {
-//                dto.setCategoryId(product.getCategory().getCategoryId()); // Thếu dòng này
+                dto.setCategoryId(product.getCategory().getCategoryId()); // Thếu dòng này
                 dto.setCategoryStatus(product.getCategory().getCategoryStatus());
+//                dto.setCategoryImage((product.getCategory().getCategoryImage()));
+                String fileName = Paths.get(product.getCategory().getCategoryImage())
+                        .getFileName()
+                        .toString();
+
+                dto.setCategoryImage(
+                        "http://localhost:8080/files/image/" + fileName
+                );
             }
 
             // Map hình ảnh sang URL
@@ -76,7 +87,7 @@ public class ProductController {
                                 size.getQuantity()
                         ))
                         .toList();
-                dto.setSizes(sizes);
+//                dto.setSizes(sizes);
             }
 
             return dto;

@@ -177,7 +177,7 @@ public class CartService implements ICartService {
         Cart cart = cartRepository.findByUser(user).orElse(null);
 
         if (cart == null) {
-            return; // Không có cart để clear
+            return;
         }
 
         // Reset total về 0 trước

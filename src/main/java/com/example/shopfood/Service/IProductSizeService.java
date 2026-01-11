@@ -13,7 +13,7 @@ public interface IProductSizeService {
 
     ProductSize update(Integer sizeId, ProductSizeRequest request);
 
-    void delete(Integer sizeId);
+//    void delete(Integer sizeId);
 
     ProductSize getById(Integer sizeId);
 

@@ -58,41 +58,34 @@ public class ReviewService implements IReviewService {
 
     public void createReview(CreateReview request) throws IOException {
 
-        // 1️⃣ Lấy user hiện tại
+        // Lấy user hiện tại
         String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
         Users user = userRepository.findByFullName(fullName)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2️⃣ Lấy product
+        // Lấy product
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new EntityNotFoundException("Product not found with id: " + request.getProductId()));
 
-        // 3️⃣ Kiểm tra user đã mua sản phẩm chưa
-        boolean hasPurchased = orderRepository
-                .existsByUserAndOrderDetailsProductAndOrderStatus(user, product, OrderStatus.COMPLETED);
-        if (!hasPurchased) {
-            throw new RuntimeException("Bạn chỉ được đánh giá sản phẩm đã mua");
-        }
-
-        // 4️⃣ Kiểm tra user đã review sản phẩm này chưa
-        boolean alreadyReviewed = reviewRepository.existsByUserAndProduct(user, product);
-        if (alreadyReviewed) {
-            throw new RuntimeException("Bạn đã đánh giá sản phẩm này rồi");
-        }
-
-        // 5️⃣ Validate rating
+        // Validate rating
         if (request.getRating() < 1 || request.getRating() > 5) {
             throw new RuntimeException("Rating phải từ 1 đến 5");
         }
 
-        // 6️⃣ Tạo review và lưu
+        // Kiểm tra xem user đã review sản phẩm này chưa
+        boolean hasReviewed = reviewRepository.findByProductAndUser(product, user).isPresent();
+        if (hasReviewed) {
+            // Bắn lỗi nếu đã review
+            throw new RuntimeException("Bạn đã đánh giá sản phẩm này rồi");
+        }
+
+        // Tạo review mới
         Review review = new Review();
         review.setUser(user);
         review.setProduct(product);
         review.setRating(request.getRating());
         review.setReviewText(request.getReviewText());
         review.setCreatedAt(LocalDateTime.now());
-
         reviewRepository.save(review);
     }
 

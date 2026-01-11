@@ -20,9 +20,6 @@ public class UserRequest {
     private @NotBlank(
             message = "Full name is required"
     ) String fullName;
-//    private @NotBlank(
-//            message = "Address is required"
-//    )
     String address;
     private @NotBlank(
             message = "image is required"

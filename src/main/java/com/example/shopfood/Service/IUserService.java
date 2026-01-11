@@ -22,4 +22,7 @@ public interface IUserService {
     void updateUser(Integer userId, UserRequest userRequest);
 
     boolean deleteUser(Integer userId);
+
+    void changePassword(String username, String oldPassword, String newPassword);
+
 }

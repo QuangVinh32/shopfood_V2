@@ -116,4 +116,22 @@ public class UserService implements IUserService, UserDetailsService {
             return false;
         }
     }
+
+    @Override
+    @Transactional(rollbackOn = {Exception.class})
+    public void changePassword(String username, String oldPassword, String newPassword) {
+
+        Users user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new AppException(ErrorResponseBase.USER_NOT_FOUND));
+
+        // Sai mật khẩu cũ
+        if (!encoder.matches(oldPassword, user.getPassword())) {
+            throw new AppException(ErrorResponseBase.OLD_PASSWORD_INCORRECT);
+        }
+
+        // Encode mật khẩu mới
+        user.setPassword(encoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
 }

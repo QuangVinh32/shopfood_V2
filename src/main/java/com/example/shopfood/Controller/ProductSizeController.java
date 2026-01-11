@@ -30,14 +30,12 @@ public class ProductSizeController {
     @GetMapping("/{id}")
     public ProductSizeResponse get(@PathVariable Integer id) {
         ProductSize ps = productSizeService.getById(id);
-
         ProductSizeResponse res = new ProductSizeResponse();
         res.setProductSizeId(ps.getProductSizeId());
         res.setSizeName(String.valueOf(ps.getSizeName()));
         res.setPrice(ps.getPrice());
         res.setDiscount(ps.getDiscount());
         res.setQuantity(ps.getQuantity());
-
         return res;
     }
 
@@ -62,13 +60,14 @@ public class ProductSizeController {
     }
 
     // ================= DELETE =================
-
-    @DeleteMapping("/{sizeId}")
-    public void delete(
-            @PathVariable Integer sizeId
-    ) {
-        productSizeService.delete(sizeId);
-    }
+// Không nên xóa Size vì nó còn nằm trong giỏ hàng hay đơn hàng đang còn hoạt động
+// Cách tốt nhất là set Quantity về 0 rồi đưa dữ liệu lên frontend cho hiện thông tin (còn bán, ngừng bán)
+//    @DeleteMapping("/{sizeId}")
+//    public void delete(
+//            @PathVariable Integer sizeId
+//    ) {
+//        productSizeService.delete(sizeId);
+//    }
 
     // ================= BULK UPSERT =================
 

@@ -6,8 +6,10 @@ import java.util.stream.Collectors;
 
 import com.example.shopfood.Model.DTO.UserForAdmin;
 import com.example.shopfood.Model.Entity.Users;
+import com.example.shopfood.Model.Request.User.ChangePasswordRequest;
 import com.example.shopfood.Model.Request.User.UserRequest;
 import com.example.shopfood.Service.Class.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,23 @@ public class UserController {
         List<UserForAdmin> userDTOs = users.stream().map((user) ->mapper.map(user, UserForAdmin.class)).collect(Collectors.toList());
         return ResponseEntity.status(HttpStatus.OK).body(userDTOs);
     }
+
+    @PostMapping("/user/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String username = httpRequest.getUserPrincipal().getName();
+
+        userService.changePassword(
+                username,
+                request.getOldPassword(),
+                request.getNewPassword()
+        );
+
+        return ResponseEntity.ok("Đổi mật khẩu thành công");
+    }
+
 
     @GetMapping({"/{userId}"})
     public ResponseEntity<?> getUserDetails(@PathVariable Integer userId) {

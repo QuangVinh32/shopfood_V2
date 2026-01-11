@@ -40,7 +40,6 @@ public class CategoryController {
         Page<CategoryDTO> categoryDTOs = categories.map(category -> {
             CategoryDTO dto = new CategoryDTO();
             dto.setCategoryStatus(String.valueOf(category.getCategoryStatus()));
-
             if (category.getCategoryImage() != null) {
                 // Lấy mỗi tên file (name.jpg)
                 String fileName = Paths.get(category.getCategoryImage())
