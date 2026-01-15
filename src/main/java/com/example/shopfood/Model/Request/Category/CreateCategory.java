@@ -1,11 +1,13 @@
 package com.example.shopfood.Model.Request.Category;
 
 import com.example.shopfood.Model.Entity.CategoryStatus;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class CreateCategory {
+    @NotBlank
     private CategoryStatus categoryStatus;
     private MultipartFile categoryImage;
 }

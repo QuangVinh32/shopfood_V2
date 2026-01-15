@@ -22,12 +22,8 @@ public interface IVoucherService {
     );
     List<Voucher> getAllForAdmin();
     List<Voucher> getAllForUsers();
-
-
     Optional<Voucher> getVoucherByCode(String code);
-
     void deleteVoucher(Integer id);
-
     Voucher updateVoucher(Integer voucherId, UpdateVoucher request);
     Voucher getValidVoucher(String voucherCode);
 

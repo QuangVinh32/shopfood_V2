@@ -1,5 +1,6 @@
 package com.example.shopfood.Controller;
 
+import com.example.shopfood.Model.Request.Cart.AddToCartRequest;
 import com.example.shopfood.Service.ICartService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -7,13 +8,27 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("api/v1/carts")
+@RequestMapping("api/carts")
 @CrossOrigin("*")
 @Validated
 public class CartController {
 
     @Autowired
     private ICartService cartService;
+
+    @PostMapping("/add")
+    public ResponseEntity<?> addToCartWithQuantity(
+            @RequestBody AddToCartRequest req) {
+
+        cartService.addProductToCart(
+                req.getProductId(),
+                req.getProductSizeId(),
+                req.getQuantity()
+        );
+
+        return ResponseEntity.ok("Added to cart");
+    }
+
 
     // Phương thức 1: Thêm sản phẩm với size cụ thể
     @PostMapping("/add/{productId}/{productSizeId}")

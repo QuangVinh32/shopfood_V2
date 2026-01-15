@@ -15,26 +15,36 @@ public class FileService implements IFileService {
     private FileRepository fileRepository;
     private final FileManager fileManager = new FileManager();
 
+    @Override
     public String uploadImage(MultipartFile image) throws IOException {
-        String originalFileName = image.getOriginalFilename();
-        String format = fileManager.getFormatFile(originalFileName);
-        String UPLOAD_DIR = "D:\\Java Sping Boot\\shopfood_V2\\uploads\\images";
-        String path = UPLOAD_DIR + "\\" + originalFileName;
 
-        // Kiểm tra trong database xem có file trùng tên chưa
+        // ✅ 1. Ảnh null hoặc rỗng → bỏ qua
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+
+        String originalFileName = image.getOriginalFilename();
+
+        // phòng trường hợp filename null
+        if (originalFileName == null || originalFileName.isBlank()) {
+            return null;
+        }
+
+        String UPLOAD_DIR = "D:\\Java Sping Boot\\shopfood_V2\\uploads\\images";
+        String path = UPLOAD_DIR + File.separator + originalFileName;
+
         FileEntity existing = fileRepository.findByName(originalFileName).orElse(null);
         if (existing != null && new File(existing.getPath()).exists()) {
-            // Nếu file đã tồn tại => dùng lại path cũ
             return existing.getPath();
         }
 
-        // Nếu chưa có, thì upload mới
         File directory = new File(UPLOAD_DIR);
         if (!directory.exists()) {
             directory.mkdirs();
         }
 
         fileManager.createNewMultiPartFile(path, image);
+
         FileEntity newFile = new FileEntity();
         newFile.setName(originalFileName);
         newFile.setPath(path);
@@ -42,6 +52,7 @@ public class FileService implements IFileService {
 
         return path;
     }
+
 
 
 }

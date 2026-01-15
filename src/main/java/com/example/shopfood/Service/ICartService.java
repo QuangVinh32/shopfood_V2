@@ -7,7 +7,7 @@ import java.util.List;
 
 @Service
 public interface ICartService {
-
+    void addProductToCart(Integer productId, Integer productSizeId, Integer quantity);
     void addProductToCart(Integer productId, Integer productSizeId); // Thêm productSizeId
     void removeProductFromCart(Integer productId, Integer productSizeId); // Thêm productSizeId
     void deleteByCartId(Integer productId, Integer productSizeId); // Thêm productSizeId

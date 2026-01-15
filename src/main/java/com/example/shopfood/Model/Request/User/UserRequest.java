@@ -21,9 +21,7 @@ public class UserRequest {
             message = "Full name is required"
     ) String fullName;
     String address;
-    private @NotBlank(
-            message = "image is required"
-    ) MultipartFile image;
+    MultipartFile image;
     private @NotBlank(
             message = "Phone number is required"
     ) String phone;

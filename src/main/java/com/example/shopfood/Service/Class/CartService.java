@@ -32,6 +32,65 @@ public class CartService implements ICartService {
 
     @Override
     @Transactional
+    public void addProductToCart(Integer productId, Integer productSizeId, Integer quantity) {
+
+        if (quantity == null || quantity <= 0) {
+            throw new RuntimeException("Quantity must be greater than 0");
+        }
+
+        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByFullName(fullName)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Cart cart = cartRepository.findByUser(user).orElseGet(() -> {
+            Cart c = new Cart();
+            c.setUser(user);
+            c.setTotal(0.0);
+            return cartRepository.save(c);
+        });
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        ProductSize productSize = productSizeRepository.findById(productSizeId)
+                .orElseThrow(() -> new RuntimeException("Product size not found"));
+
+        if (!productSize.getProduct().getProductId().equals(productId)) {
+            throw new RuntimeException("Size does not belong to product");
+        }
+
+        if (quantity > productSize.getQuantity()) {
+            throw new RuntimeException("Not enough stock");
+        }
+
+        Optional<CartDetail> existing = cartDetailRepository
+                .findByCartAndProductAndProductSize(cart, product, productSize);
+
+        if (existing.isPresent()) {
+            CartDetail cd = existing.get();
+            int newQty = cd.getQuantity() + quantity;
+
+            if (newQty > productSize.getQuantity()) {
+                throw new RuntimeException("Not enough stock");
+            }
+
+            cd.setQuantity(newQty);
+            cartDetailRepository.save(cd);
+        } else {
+            CartDetail cd = new CartDetail();
+            cd.setCart(cart);
+            cd.setProduct(product);
+            cd.setProductSize(productSize);
+            cd.setQuantity(quantity);
+            cartDetailRepository.save(cd);
+        }
+
+        updateCartTotal(cart);
+    }
+
+
+    @Override
+    @Transactional
     public void addProductToCart(Integer productId, Integer productSizeId) {
         String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
 

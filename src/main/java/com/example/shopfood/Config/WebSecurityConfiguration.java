@@ -58,25 +58,24 @@ public class WebSecurityConfiguration {
                                 "/api/products/**",
                                 "/files/image/**",
                                 "/api/categories/**",
-                                "/api/product_sizes/**",
-
-                                "/api/v1/carts/summary"
+                                "/api/product_sizes/**"
+//                                "/api/v1/carts/summary"
                         ).permitAll()
 
-                        .requestMatchers(HttpMethod.POST, "/api/v1/carts/add/{productId}", "/api/v1/carts/remove/{productId}").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/carts/add/{productId}", "/api/carts/remove/{productId}").permitAll()
 
                         // Admin-only
-                        .requestMatchers(HttpMethod.POST, "/api/v1/products/**").hasAuthority("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/products/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/products/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAuthority("ADMIN")
 
                         // User-only
-//                        .requestMatchers(HttpMethod.DELETE, "/api/v1/carts/clear", "/api/v1/carts/remove/{id}", "/api/v1/carts/delete/{id}")
+//                        .requestMatchers(HttpMethod.DELETE, "/api/carts/clear", "/api/carts/remove/{id}", "/api/carts/delete/{id}")
 //                        .hasAuthority("USER,ADMIN")
 
                         // Authenticated users
-                        .requestMatchers(HttpMethod.POST, "/api/v1/orders/**", "/api/v1/carts/**", "/api/v1/categories/**", "/api/v1/type/**")
+                        .requestMatchers(HttpMethod.POST, "/api/orders/**", "/api/carts/**", "/api/categories/**", "/api/type/**")
                         .hasAnyAuthority("ADMIN", "MANAGER", "USER")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/products/**", "/api/v1/orders/**", "/api/v1/carts/**", "/api/v1/categories/**", "/api/v1/type/**")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**", "/api/orders/**", "/api/carts/**", "/api/categories/**", "/api/type/**")
                         .hasAnyAuthority("ADMIN", "MANAGER", "USER")
 
                         .anyRequest().authenticated()
