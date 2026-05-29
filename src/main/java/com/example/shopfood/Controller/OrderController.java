@@ -3,6 +3,7 @@ package com.example.shopfood.Controller;
 import com.example.shopfood.Model.DTO.OrderDTO;
 import com.example.shopfood.Model.DTO.OrderGetDTO;
 import com.example.shopfood.Model.DTO.VoucherApplyResult;
+import com.example.shopfood.Model.Entity.PaymentMethod;
 import com.example.shopfood.Model.Request.Order.FilterOrder;
 import com.example.shopfood.Model.Request.Order.UpdateOrder;
 import com.example.shopfood.Service.IOrderService;
@@ -77,11 +78,18 @@ public class OrderController {
     public ResponseEntity<?> checkout(
             @RequestParam Integer shippingAddressId,
             @RequestParam(required = false) String voucherCode,
-            @RequestParam(required = false) String note
+            @RequestParam(required = false) String note,
+            @RequestParam(required = false, defaultValue = "COD") PaymentMethod paymentMethod
     ) {
         try {
-            Integer orderId = orderService.createOrderFull(shippingAddressId, voucherCode, note);
-            return ResponseEntity.ok(Map.of("orderId", orderId));
+            Integer orderId = orderService.createOrderFull(shippingAddressId, voucherCode, note, paymentMethod);
+            return ResponseEntity.ok(Map.of(
+                    "orderId", orderId,
+                    "paymentMethod", paymentMethod,
+                    "nextStep", paymentMethod == PaymentMethod.MOMO
+                            ? "Gọi POST /api/payments/momo/create?orderId=" + orderId + " để lấy payUrl"
+                            : "Đơn COD đã ghi nhận, thanh toán khi nhận hàng"
+            ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (AccessDeniedException e) {

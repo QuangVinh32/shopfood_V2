@@ -172,8 +172,8 @@ sequenceDiagram
     U->>FE: Bấm "Checkout"
     FE->>BE: GET /api/shipping-addresses
     BE-->>FE: List địa chỉ
-    U->>FE: Chọn địa chỉ + nhập voucher code (optional)
-    FE->>BE: POST /api/v1/orders/checkout?shippingAddressId=1&voucherCode=GIAM10
+    U->>FE: Chọn địa chỉ + voucher + paymentMethod (COD/MOMO)
+    FE->>BE: POST /api/v1/orders/checkout?shippingAddressId=1&voucherCode=GIAM10&paymentMethod=COD
 
     BE->>DB: BEGIN TRANSACTION
     BE->>DB: SELECT shipping_address (verify ownership)
@@ -195,11 +195,20 @@ sequenceDiagram
     end
     BE->>DB: INSERT order_status_history (null → PENDING)
     BE->>DB: DELETE cart_details + cart
+    alt paymentMethod = COD
+        BE->>DB: INSERT payment (provider=COD, status=PENDING)
+    end
     BE->>DB: COMMIT
     BE-->>Mail: sendHtml(order-confirmation.html) (async)
-    BE-->>FE: { orderId: 123 }
+    BE-->>FE: { orderId: 123, paymentMethod, nextStep }
 
-    FE-->>U: "Đặt hàng thành công, mã đơn #123"
+    alt COD
+        FE-->>U: "Đã đặt — thanh toán khi nhận hàng"
+    else MOMO
+        FE->>BE: POST /api/payments/momo/create?orderId=123
+        BE-->>FE: { payUrl }
+        FE-->>U: Redirect sang Momo
+    end
 ```
 
 ### 2.5. Thanh toán Momo
@@ -243,6 +252,37 @@ sequenceDiagram
     FE->>BE: GET /api/v1/orders/123
     BE-->>FE: Order status = CONFIRMED
     FE-->>U: "Thanh toán thành công"
+```
+
+### 2.6.0. Admin/Shipper xử lý đơn COD
+
+```mermaid
+sequenceDiagram
+    actor A as Admin/Shipper
+    participant FE
+    participant BE
+    participant DB
+
+    Note over A,DB: Đơn PENDING, paymentMethod=COD
+    A->>FE: Bấm "Xác nhận đơn"
+    FE->>BE: PUT /api/v1/orders/{id} { status: CONFIRMED }
+    BE->>BE: validateTransition(PENDING → CONFIRMED, isAdmin=true)
+    BE->>DB: UPDATE order_status=CONFIRMED
+    BE->>DB: INSERT order_status_history
+
+    A->>FE: Bấm "Đang giao"
+    FE->>BE: PUT { status: SHIPPING }
+    BE->>DB: UPDATE order_status=SHIPPING
+
+    Note over A: Shipper giao tới khách, thu tiền mặt
+    A->>FE: Bấm "Hoàn tất + Thu tiền"
+    FE->>BE: PUT { status: COMPLETED }
+    BE->>BE: validateTransition(SHIPPING → COMPLETED, isAdmin=true)
+    BE->>DB: UPDATE order_status=COMPLETED
+    BE->>DB: UPDATE payment (COD) SET status=SUCCESS, paid_at=NOW()
+    BE->>DB: INSERT order_status_history
+    Note over BE,DB: Doanh thu được tính từ đơn này
+    BE-->>FE: OrderDTO
 ```
 
 ### 2.6. Cancel order + rollback
@@ -444,49 +484,46 @@ sequenceDiagram
 
 ---
 
-## 4. State machine — OrderStatus
+## 4. State machine — OrderStatus (F&B đồ uống, đã rút gọn)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING: createOrderFull
+    [*] --> PENDING: checkout
     PENDING --> CONFIRMED: admin / Momo IPN OK
     PENDING --> CANCELED: user / admin
     CONFIRMED --> SHIPPING: admin
     CONFIRMED --> CANCELED: admin
-    SHIPPING --> DELIVERED: admin
-    SHIPPING --> RETURNED: admin
-    DELIVERED --> COMPLETED: admin
-    DELIVERED --> RETURNED: admin
+    SHIPPING --> COMPLETED: admin/shipper (giao + thu tiền)
+    SHIPPING --> CANCELED: admin (giao thất bại)
     COMPLETED --> [*]
     CANCELED --> [*]
-    RETURNED --> [*]
 
     note right of PENDING
         Vừa tạo
         Stock đã trừ
+        COD: Payment PENDING
     end note
 
     note right of CONFIRMED
-        Đã thanh toán
-        hoặc admin duyệt
+        Momo: đã thanh toán
+        COD: admin duyệt
     end note
 
-    note right of DELIVERED
-        Bắt đầu tính
-        doanh thu
+    note right of COMPLETED
+        Tính doanh thu
+        COD Payment → SUCCESS
     end note
 
     note right of CANCELED
         Stock hoàn lại
         Voucher hoàn lại
-    end note
-
-    note right of RETURNED
-        Stock hoàn lại
-        Voucher hoàn lại
-        (sau khi đã giao)
+        Momo Payment → REFUNDED
     end note
 ```
+
+**Phương thức thanh toán** (`PaymentMethod`):
+- `COD` — Tạo Payment(PENDING) khi checkout → tự SUCCESS khi đơn COMPLETED
+- `MOMO` — Sau checkout phải gọi `/momo/create` → user thanh toán → IPN tự CONFIRMED order
 
 ---
 

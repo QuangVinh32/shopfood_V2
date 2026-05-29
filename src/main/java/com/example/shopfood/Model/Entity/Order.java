@@ -74,6 +74,10 @@ public class Order {
     @Column(name = "note", length = 500)
     private String note;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false, length = 20)
+    private PaymentMethod paymentMethod = PaymentMethod.COD;
+
     @OneToMany(
             mappedBy = "order",
             cascade = {CascadeType.ALL}

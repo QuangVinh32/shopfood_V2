@@ -943,6 +943,78 @@ Grep verify: `printStackTrace|System.out|System.err` → **0 kết quả**
 - `Controller/ProductController.java`
 - `Service/Class/NotificationCleanupJob.java`
 
+## 6.7 — COD payment + rút gọn OrderStatus cho F&B đồ uống
+
+### Lý do
+Project bán nước uống chủ yếu → đồ uống không có nhu cầu trả hàng/đổi hàng 7 ngày → bỏ DELIVERED/RETURNED.
+Đồng thời thêm COD (Cash on Delivery) — phương thức thanh toán phổ biến nhất VN.
+
+### OrderStatus rút gọn
+| Trước | Sau |
+|---|---|
+| 7 status: PENDING, CONFIRMED, SHIPPING, **DELIVERED**, COMPLETED, CANCELED, **RETURNED** | 5 status: PENDING, CONFIRMED, SHIPPING, COMPLETED, CANCELED |
+
+### State machine mới
+```
+PENDING → CONFIRMED → SHIPPING → COMPLETED
+   ↓         ↓           ↓
+CANCELED CANCELED     CANCELED
+```
+
+### Phân quyền chặt (`validateTransition`)
+| Chuyển | Ai |
+|---|---|
+| PENDING → CONFIRMED | Admin (hoặc Momo IPN OK) |
+| PENDING → CANCELED | User chính chủ hoặc admin |
+| CONFIRMED → SHIPPING/CANCELED | Admin |
+| SHIPPING → COMPLETED/CANCELED | Admin/Shipper |
+| COMPLETED/CANCELED | TERMINAL (không sửa được) |
+
+### File mới (1)
+- `Model/Entity/PaymentMethod.java` — enum `COD, MOMO`
+
+### File sửa
+- `Model/Entity/OrderStatus.java` — bỏ DELIVERED, RETURNED
+- `Model/Entity/Order.java` — thêm field `paymentMethod` (default COD)
+- `Service/IOrderService.java` — `createOrderFull` thêm param `paymentMethod`
+- `Service/Class/OrderService.java`:
+  - `validateTransition` helper enforce state machine
+  - `createCodPayment` + `markCodPaymentSuccess` helpers
+  - `createOrderFull` tạo Payment(COD, PENDING) khi method = COD
+  - `updateOrder`: COMPLETED đơn COD → Payment SUCCESS; CANCELED đơn đã SUCCESS → REFUNDED
+  - `REVENUE_STATUSES` chỉ còn `COMPLETED`
+- `Controller/OrderController.java`:
+  - `/checkout` thêm param `paymentMethod` (default COD)
+  - Response trả `nextStep` hướng dẫn FE tiếp theo
+- `db/migration/V4__cod_payment_simplify_order_status.sql`:
+  - UPDATE DELIVERED → COMPLETED, RETURNED → CANCELED
+  - ADD COLUMN orders.payment_method NOT NULL DEFAULT 'COD'
+- `API_GUIDE.md` — update checkout + state machine
+- `FLOW_DIAGRAM.md` — update state diagram + thêm flow COD complete
+
+### Behavior
+
+**COD checkout**:
+1. User checkout → Order PENDING, Payment(COD, PENDING) created
+2. Admin xác nhận → CONFIRMED
+3. Admin ship → SHIPPING
+4. Shipper giao tới, thu tiền → admin bấm COMPLETED
+5. Payment(COD) tự đổi SUCCESS, paidAt = NOW
+6. Đơn vào doanh thu
+
+**Momo checkout**:
+1. User checkout với paymentMethod=MOMO → Order PENDING, không Payment
+2. FE gọi `/momo/create` → BE tạo Payment(MOMO, PENDING) + redirect Momo
+3. User trả tiền → Momo IPN → Payment SUCCESS + Order CONFIRMED
+4. Admin ship → SHIPPING → COMPLETED
+5. Đơn vào doanh thu
+
+**Cancel đơn Momo đã thanh toán**:
+- Payment tự chuyển REFUNDED (manual refund qua Momo dashboard)
+- Stock + voucher hoàn lại
+
+---
+
 ## 6.6 — 🚨 CRITICAL phát hiện trễ: OrderDetailPK thiếu productSize
 **File**: `Model/Entity/OrderDetailPK.java`, `Model/Entity/OrderDetail.java`, `db/migration/V3__order_detail_pk_include_productsize.sql`
 

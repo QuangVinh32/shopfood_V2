@@ -421,14 +421,25 @@ pm.environment.set("refreshToken", res.refreshToken);
 
 ### 9.1. Checkout (luồng đầy đủ) 🔵
 - **Method**: `POST`
-- **URL**: `{{baseUrl}}/api/v1/orders/checkout?shippingAddressId=1&voucherCode=GIAM10&note=Giao gấp`
+- **URL**: `{{baseUrl}}/api/v1/orders/checkout?shippingAddressId=1&voucherCode=GIAM10&note=Giao gấp&paymentMethod=COD`
+
+**Param `paymentMethod`** (default `COD`):
+| Giá trị | Ý nghĩa |
+|---|---|
+| `COD` | Tiền mặt khi nhận hàng — không cần thanh toán trước |
+| `MOMO` | Sau khi checkout, gọi `POST /api/payments/momo/create?orderId=...` để lấy `payUrl` |
 
 **Response 200**:
 ```json
-{ "orderId": 123 }
+{
+  "orderId": 123,
+  "paymentMethod": "COD",
+  "nextStep": "Đơn COD đã ghi nhận, thanh toán khi nhận hàng"
+}
 ```
 
 > Server tự: snapshot địa chỉ, tính ship, trừ kho atomic, áp voucher, gửi email confirm.
+> COD: tạo Payment(COD, PENDING) → khi đơn COMPLETED → Payment tự chuyển SUCCESS.
 
 ### 9.2. Tạo order legacy (deprecated, không có shipping) 🔵
 - **Method**: `POST`
@@ -465,8 +476,24 @@ pm.environment.set("refreshToken", res.refreshToken);
 { "status": "CANCELED" }
 ```
 
-> User chỉ được CANCEL đơn của mình. Admin được đổi mọi status.
-> Status hợp lệ: `PENDING, CONFIRMED, SHIPPING, DELIVERED, COMPLETED, CANCELED, RETURNED`
+**State machine** (đơn giản cho F&B đồ uống):
+```
+PENDING → CONFIRMED → SHIPPING → COMPLETED
+   ↓          ↓           ↓
+CANCELED  CANCELED    CANCELED
+```
+
+| Chuyển | Ai có quyền |
+|---|---|
+| PENDING → CONFIRMED | Admin (hoặc auto Momo IPN OK) |
+| CONFIRMED → SHIPPING | Admin |
+| SHIPPING → COMPLETED | Admin/Shipper (đã giao + thu tiền) |
+| PENDING → CANCELED | User chính chủ hoặc admin |
+| CONFIRMED/SHIPPING → CANCELED | Admin only |
+| COMPLETED/CANCELED → * | KHÔNG (terminal state) |
+
+> Khi COMPLETED đơn COD → Payment(COD) tự chuyển SUCCESS, paidAt = NOW().
+> Khi CANCELED đơn đã thanh toán Momo → Payment tự chuyển REFUNDED (manual refund qua Momo dashboard).
 
 ### 9.7. Xóa đơn 🔴
 - **Method**: `DELETE`

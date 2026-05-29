@@ -67,6 +67,30 @@ public class OrderService implements IOrderService {
     @Autowired
     private IEmailService emailService;
 
+    @Autowired
+    private PaymentRepository paymentRepository;
+
+    private void createCodPayment(Order order) {
+        Payment p = new Payment();
+        p.setOrder(order);
+        p.setProvider("COD");
+        p.setStatus(PaymentStatus.PENDING);
+        p.setAmount(order.getTotalAmount());
+        paymentRepository.save(p);
+    }
+
+    private void markCodPaymentSuccess(Order order) {
+        paymentRepository.findByOrder(order).stream()
+                .filter(p -> "COD".equalsIgnoreCase(p.getProvider())
+                        && p.getStatus() == PaymentStatus.PENDING)
+                .forEach(p -> {
+                    p.setStatus(PaymentStatus.SUCCESS);
+                    p.setPaidAt(new Date());
+                    p.setAmount(order.getTotalAmount());
+                    paymentRepository.save(p);
+                });
+    }
+
     private void sendOrderConfirmation(Order order) {
         try {
             java.util.Map<String, Object> vars = new java.util.HashMap<>();
@@ -241,7 +265,8 @@ public class OrderService implements IOrderService {
 
     @Transactional
     @Override
-    public Integer createOrderFull(Integer shippingAddressId, String voucherCode, String note) throws Exception {
+    public Integer createOrderFull(Integer shippingAddressId, String voucherCode, String note,
+                                   PaymentMethod paymentMethod) throws Exception {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -255,6 +280,8 @@ public class OrderService implements IOrderService {
             throw new IllegalArgumentException("Giỏ hàng trống");
         }
 
+        PaymentMethod method = (paymentMethod != null) ? paymentMethod : PaymentMethod.COD;
+
         Order order = new Order();
         order.setCreatedAt(new Date());
         order.setOrderStatus(OrderStatus.PENDING);
@@ -263,6 +290,7 @@ public class OrderService implements IOrderService {
         order.setReceiverPhone(addr.getReceiverPhone());
         order.setShippingAddress(buildFullAddress(addr));
         order.setNote(note);
+        order.setPaymentMethod(method);
         orderRepository.save(order);
 
         double subtotal = 0.0;
@@ -317,6 +345,10 @@ public class OrderService implements IOrderService {
         cartDetailRepository.deleteByCartIdNative(cart.getCartId());
         cartRepository.deleteCartByIdNative(cart.getCartId());
 
+        if (method == PaymentMethod.COD) {
+            createCodPayment(order);
+        }
+
         sendOrderConfirmation(order);
 
         return order.getOrderId();
@@ -339,26 +371,20 @@ public class OrderService implements IOrderService {
         Order order = orderRepository.findById(orderID)
                 .orElseThrow(() -> new Exception("Order not found"));
 
-        boolean isAdmin = currentUserUtil.hasRole("ADMIN");
-        boolean isOwner = order.getUser().getUserId()
-                .equals(currentUserUtil.currentUser().getUserId());
-        if (!isAdmin) {
-            // User chỉ được tự cancel đơn của mình; các status khác yêu cầu admin
-            if (!isOwner) {
-                throw new AccessDeniedException("Không có quyền sửa đơn hàng này");
-            }
-            if (updateOrder.getStatus() != OrderStatus.CANCELED) {
-                throw new AccessDeniedException("Chỉ admin được đổi sang trạng thái này");
-            }
-        }
-
         OrderStatus oldStatus = order.getOrderStatus();
         OrderStatus newStatus = updateOrder.getStatus();
 
-        // Hủy đơn từ PENDING/CONFIRMED → hoàn kho + hoàn voucher
-        boolean restoreStock = (newStatus == OrderStatus.CANCELED || newStatus == OrderStatus.RETURNED)
+        boolean isAdmin = currentUserUtil.hasRole("ADMIN");
+        boolean isOwner = order.getUser().getUserId()
+                .equals(currentUserUtil.currentUser().getUserId());
+
+        // ===== STATE MACHINE — phân quyền chặt =====
+        validateTransition(oldStatus, newStatus, isAdmin, isOwner);
+
+        // Hủy đơn → hoàn kho + hoàn voucher (chỉ từ PENDING/CONFIRMED, SHIPPING admin cancel cũng OK)
+        boolean restoreStock = newStatus == OrderStatus.CANCELED
                 && oldStatus != OrderStatus.CANCELED
-                && oldStatus != OrderStatus.RETURNED;
+                && oldStatus != OrderStatus.COMPLETED;
 
         if (restoreStock) {
             for (OrderDetail orderDetail : order.getOrderDetails()) {
@@ -373,21 +399,19 @@ public class OrderService implements IOrderService {
             }
         }
 
-        // Nếu từ trạng thái khác về PENDING, trừ lại số lượng THEO SIZE
-        if (updateOrder.getStatus() == OrderStatus.PENDING &&
-                order.getOrderStatus() != OrderStatus.PENDING) {
-            for (OrderDetail orderDetail : order.getOrderDetails()) {
-                ProductSize productSize = orderDetail.getProductSize();
-                if (productSize != null) {
-                    if (productSize.getQuantity() < orderDetail.getQuantity()) {
-                        throw new Exception("Không đủ số lượng tồn kho cho: " +
-                                orderDetail.getProduct().getProductName() +
-                                " - Size: " + productSize.getSizeName());
-                    }
-                    productSize.setQuantity(productSize.getQuantity() - orderDetail.getQuantity());
-                    productSizeRepository.save(productSize);
-                }
-            }
+        // Khi COMPLETED đơn COD → đánh dấu Payment thu tiền thành công
+        if (newStatus == OrderStatus.COMPLETED && order.getPaymentMethod() == PaymentMethod.COD) {
+            markCodPaymentSuccess(order);
+        }
+
+        // Khi CANCELED đơn đã có Payment SUCCESS (Momo) → đánh dấu REFUNDED
+        if (newStatus == OrderStatus.CANCELED) {
+            paymentRepository.findByOrder(order).stream()
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .forEach(p -> {
+                        p.setStatus(PaymentStatus.REFUNDED);
+                        paymentRepository.save(p);
+                    });
         }
 
         order.setOrderStatus(newStatus);
@@ -474,10 +498,52 @@ public class OrderService implements IOrderService {
         return orderRepository.findAll(spec, pageable).map(this::toDTO);
     }
 
-    // ===== DOANH THU - tính đơn DELIVERED + COMPLETED =====
-    // Cả 2 status đều đã thu được tiền thật sự
+    // ===== STATE MACHINE — phân quyền chuyển status =====
+    //   PENDING   → CONFIRMED (admin / Momo IPN)
+    //   PENDING   → CANCELED  (owner / admin)
+    //   CONFIRMED → SHIPPING  (admin)
+    //   CONFIRMED → CANCELED  (admin)
+    //   SHIPPING  → COMPLETED (admin/shipper, gộp giao + thu tiền)
+    //   SHIPPING  → CANCELED  (admin)
+    //   COMPLETED → (terminal)
+    //   CANCELED  → (terminal)
+    private void validateTransition(OrderStatus from, OrderStatus to,
+                                    boolean isAdmin, boolean isOwner) {
+        if (from == OrderStatus.COMPLETED || from == OrderStatus.CANCELED) {
+            throw new AccessDeniedException("Đơn đã ở trạng thái cuối, không sửa được");
+        }
+        switch (to) {
+            case CANCELED:
+                // user chỉ được CANCEL khi PENDING (chưa duyệt); sau đó admin only
+                if (!isAdmin) {
+                    if (!isOwner) throw new AccessDeniedException("Không có quyền hủy đơn này");
+                    if (from != OrderStatus.PENDING) {
+                        throw new AccessDeniedException("Đơn đã được xử lý, chỉ admin mới hủy được");
+                    }
+                }
+                break;
+            case CONFIRMED:
+                if (!isAdmin) throw new AccessDeniedException("Chỉ admin được xác nhận đơn");
+                if (from != OrderStatus.PENDING) throw new AccessDeniedException("Chỉ confirm được đơn PENDING");
+                break;
+            case SHIPPING:
+                if (!isAdmin) throw new AccessDeniedException("Chỉ admin được đánh dấu đang giao");
+                if (from != OrderStatus.CONFIRMED) throw new AccessDeniedException("Phải CONFIRMED trước khi SHIPPING");
+                break;
+            case COMPLETED:
+                if (!isAdmin) throw new AccessDeniedException("Chỉ admin/shipper được hoàn tất đơn");
+                if (from != OrderStatus.SHIPPING) throw new AccessDeniedException("Phải SHIPPING trước khi COMPLETED");
+                break;
+            case PENDING:
+                throw new AccessDeniedException("Không thể chuyển ngược về PENDING");
+            default:
+                throw new AccessDeniedException("Status không hợp lệ");
+        }
+    }
+
+    // ===== DOANH THU — chỉ tính đơn COMPLETED =====
     private static final java.util.Set<OrderStatus> REVENUE_STATUSES =
-            java.util.EnumSet.of(OrderStatus.DELIVERED, OrderStatus.COMPLETED);
+            java.util.EnumSet.of(OrderStatus.COMPLETED);
 
     @Override
     public Long getTotalRevenue() {

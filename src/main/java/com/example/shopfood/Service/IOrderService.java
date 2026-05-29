@@ -19,7 +19,8 @@ public interface IOrderService {
 
     void createOrder(String voucherCode) throws Exception;
 
-    Integer createOrderFull(Integer shippingAddressId, String voucherCode, String note) throws Exception;
+    Integer createOrderFull(Integer shippingAddressId, String voucherCode, String note,
+                            com.example.shopfood.Model.Entity.PaymentMethod paymentMethod) throws Exception;
 
     OrderDTO updateOrder(int orderID, UpdateOrder updateOrder) throws Exception;
 
