@@ -43,8 +43,8 @@ public class ReviewService implements IReviewService {
 
     public Review updateReview(int reviewId, UpdateReview request) throws IOException {
         Review existingReview = reviewRepository.findById(reviewId).orElseThrow(() -> new EntityNotFoundException("Review not found with id: " + reviewId));
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByFullName(fullName).orElseThrow(() -> new RuntimeException("User not found"));
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
         if (request.getRating() != null) {
             existingReview.setRating(request.getRating());
         }
@@ -59,8 +59,8 @@ public class ReviewService implements IReviewService {
     public void createReview(CreateReview request) throws IOException {
 
         // Lấy user hiện tại
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByFullName(fullName)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // Lấy product
@@ -91,8 +91,8 @@ public class ReviewService implements IReviewService {
 
 
     public void deleteByReviewId(int reviewId) {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByFullName(fullName).orElseThrow(() -> new RuntimeException("User not found"));
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
         Review review = reviewRepository.findById(reviewId).orElseThrow(() -> new EntityNotFoundException("Review not found with id: " + reviewId));
         if (!review.getUser().getUserId().equals(user.getUserId())) {
             throw new SecurityException("You are not authorized to delete this review");

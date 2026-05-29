@@ -29,9 +29,9 @@ public class FavouriteService implements IFavouriteService {
     private UserRepository userRepository;
 
     private Users getCurrentUser() {
-        String fullName = SecurityContextHolder.getContext()
+        String username = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
-        return userRepository.findByFullName(fullName)
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 

@@ -5,6 +5,7 @@ import lombok.Data;
 @Data
 public class FilterOrder {
     private String search;
+    private Integer userId;
     private Integer minId;
     private Integer maxId;
     private Integer minTotal;

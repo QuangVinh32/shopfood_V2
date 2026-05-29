@@ -23,6 +23,8 @@ public interface IOrderService {
 
     void deleteOrder(int id);
 
+    Page<OrderGetDTO> getMyOrders(Pageable pageable);
+
     Long getTotalRevenue();
 
     Long getTotalOriginalRevenue();

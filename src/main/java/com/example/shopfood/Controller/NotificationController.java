@@ -13,7 +13,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/notifications")
-@CrossOrigin("*")
 public class NotificationController {
 
     @Autowired
@@ -27,7 +26,7 @@ public class NotificationController {
                 .getAuthentication()
                 .getName();
 
-        return userRepository.findByFullName(username)
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 

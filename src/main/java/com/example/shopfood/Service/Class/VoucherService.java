@@ -144,9 +144,9 @@ public class VoucherService implements IVoucherService {
 
         Order order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order không tồn tại"));
 
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Users user = userRepository.findByFullName(fullName).orElseThrow(() -> new RuntimeException("User không tồn tại"));
+        Users user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
         if (!order.getUser().getUserId().equals(user.getUserId()))
             throw new RuntimeException("Không có quyền áp voucher");
@@ -266,9 +266,9 @@ public class VoucherService implements IVoucherService {
     @Override
     public List<Voucher> getAllForUsers() {
 
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Users user = userRepository.findByFullName(fullName).orElseThrow(() -> new RuntimeException("User không tồn tại"));
+        Users user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
         Date now = new Date();
 

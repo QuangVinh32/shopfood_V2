@@ -38,8 +38,8 @@ public class CartService implements ICartService {
             throw new RuntimeException("Quantity must be greater than 0");
         }
 
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByFullName(fullName)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user).orElseGet(() -> {
@@ -92,13 +92,13 @@ public class CartService implements ICartService {
     @Override
     @Transactional
     public void addProductToCart(Integer productId, Integer productSizeId) {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        if (fullName == null || fullName.equalsIgnoreCase("anonymousUser")) {
+        if (username == null || username.equalsIgnoreCase("anonymousUser")) {
             throw new RuntimeException("You must be logged in to add products to cart");
         }
 
-        Users user = userRepository.findByFullName(fullName)
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user).orElse(null);
@@ -148,9 +148,9 @@ public class CartService implements ICartService {
     @Override
     @Transactional
     public void removeProductFromCart(Integer productId, Integer productSizeId) {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Users user = userRepository.findByFullName(fullName)
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user)
@@ -187,13 +187,13 @@ public class CartService implements ICartService {
     @Override
     @Transactional
     public void deleteByCartId(Integer productId, Integer productSizeId) {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        if (fullName == null || fullName.equalsIgnoreCase("anonymousUser")) {
+        if (username == null || username.equalsIgnoreCase("anonymousUser")) {
             throw new RuntimeException("You must be logged in to delete items from cart");
         }
 
-        Users user = userRepository.findByFullName(fullName)
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user)
@@ -224,13 +224,13 @@ public class CartService implements ICartService {
     @Override
     @Transactional
     public void clearCart() {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        if (fullName == null || fullName.equalsIgnoreCase("anonymousUser")) {
+        if (username == null || username.equalsIgnoreCase("anonymousUser")) {
             throw new RuntimeException("You must be logged in to clear the cart");
         }
 
-        Users user = userRepository.findByFullName(fullName)
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user).orElse(null);
@@ -289,9 +289,9 @@ public class CartService implements ICartService {
 
     @Override
     public List<CartDetail> getCartDetails() {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Users user = userRepository.findByFullName(fullName)
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user).orElse(null);
@@ -305,9 +305,9 @@ public class CartService implements ICartService {
 
     // Thêm phương thức để lấy tổng tiền
     public Double getCartTotal() {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        Users user = userRepository.findByFullName(fullName)
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Cart cart = cartRepository.findByUser(user).orElse(null);

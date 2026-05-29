@@ -4,12 +4,10 @@ import lombok.Data;
 
 @Data
 public class UserForAdmin {
-    
+
     private Integer userId;
 
     private String username;
-
-    private String password;
 
     private String email;
 
@@ -20,4 +18,6 @@ public class UserForAdmin {
     private String image;
 
     private String phone;
+
+    private String address;
 }

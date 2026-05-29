@@ -48,35 +48,37 @@ public class WebSecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(withDefaults()) // 🔹 Bật CORS config bạn đã định nghĩa bên dưới
+                .cors(withDefaults())
                 .authorizeHttpRequests(authz -> authz
-                        // Public APIs
-                        .requestMatchers(HttpMethod.POST, "/api/register", "/api/login").permitAll()
+                        // PUBLIC
+                        .requestMatchers(HttpMethod.POST, "/api/login", "/api/register").permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/pages/**",
-                                "/auth/**",
-                                "/api/products/**",
-                                "/files/image/**",
-                                "/api/categories/**",
-                                "/api/product_sizes/**"
-//                                "/api/v1/carts/summary"
+                                "/api/products/get-all",
+                                "/api/products/user/**",
+                                "/api/products/find-all-reviews/**",
+                                "/api/products/find-by-id/**",
+                                "/api/categories/get-all",
+                                "/api/product_sizes/product/**",
+                                "/files/image/**"
                         ).permitAll()
 
-                        .requestMatchers(HttpMethod.POST, "/api/carts/add/{productId}", "/api/carts/remove/{productId}").permitAll()
-
-                        // Admin-only
-                        .requestMatchers(HttpMethod.POST, "/api/products/**").hasAuthority("ADMIN")
+                        // ADMIN-ONLY
+                        .requestMatchers(HttpMethod.POST, "/api/products", "/api/products/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/categories/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/banners/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/vouchers/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/v1/orders/admin/**").hasAuthority("ADMIN")
 
-                        // User-only
-//                        .requestMatchers(HttpMethod.DELETE, "/api/carts/clear", "/api/carts/remove/{id}", "/api/carts/delete/{id}")
-//                        .hasAuthority("USER,ADMIN")
-
-                        // Authenticated users
-                        .requestMatchers(HttpMethod.POST, "/api/orders/**", "/api/carts/**", "/api/categories/**", "/api/type/**")
-                        .hasAnyAuthority("ADMIN", "MANAGER", "USER")
-                        .requestMatchers(HttpMethod.PUT, "/api/products/**", "/api/orders/**", "/api/carts/**", "/api/categories/**", "/api/type/**")
-                        .hasAnyAuthority("ADMIN", "MANAGER", "USER")
+                        // AUTHENTICATED USERS (USER + MANAGER + ADMIN)
+                        .requestMatchers("/api/carts/**").authenticated()
+                        .requestMatchers("/api/v1/orders/**").authenticated()
+                        .requestMatchers("/api/v1/users/me/**", "/api/v1/users/me").authenticated()
+                        .requestMatchers("/api/notifications/**").authenticated()
+                        .requestMatchers("/api/favourites/**").authenticated()
+                        .requestMatchers("/api/reviews/**").authenticated()
+                        .requestMatchers("/files/image").authenticated() // upload (GET đã permitAll ở trên)
 
                         .anyRequest().authenticated()
                 )
@@ -88,51 +90,25 @@ public class WebSecurityConfiguration {
         return http.build();
     }
 
-
-//    @Bean
-//    public CorsConfigurationSource corsConfigurationSource() {
-//        CorsConfiguration configuration = new CorsConfiguration();
-//        configuration.setAllowedOrigins(Arrays.asList(
-//                "http://localhost:3000",
-//                "http://localhost:3001",
-//                "http://localhost:3002",
-//                "http://localhost:5173",
-//                "http://localhost:5174",
-//                "http://localhost:*"
-//
-//        ));
-//        configuration.setAllowedMethods(Arrays.asList("HEAD", "GET", "POST", "PUT", "DELETE", "PATCH"));
-//        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type"));
-//        configuration.setAllowCredentials(true);
-//
-//        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-//        source.registerCorsConfiguration("/**", configuration);
-//        return source;
-//    }
-
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:*",
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://localhost:3002",
-                "http://localhost:5173",
-                "http://localhost:5174"
+                "http://127.0.0.1:*"
         ));
 
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
         ));
 
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "Cache-Control"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
 }

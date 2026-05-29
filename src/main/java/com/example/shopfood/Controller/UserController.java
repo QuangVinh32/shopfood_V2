@@ -9,24 +9,17 @@ import com.example.shopfood.Model.Entity.Users;
 import com.example.shopfood.Model.Request.User.ChangePasswordRequest;
 import com.example.shopfood.Model.Request.User.UserRequest;
 import com.example.shopfood.Service.Class.UserService;
-import jakarta.servlet.http.HttpServletRequest;
+import com.example.shopfood.Utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin({"*"})
 @Validated
 @RestController
 @RequestMapping({"/api/v1/users"})
@@ -35,77 +28,88 @@ public class UserController {
     private UserService userService;
     @Autowired
     private ModelMapper mapper;
+    @Autowired
+    private CurrentUserUtil currentUserUtil;
 
     @GetMapping({"/get-all"})
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<List<UserForAdmin>> getAllUser() {
         List<Users> users = this.userService.getAllUser();
-        List<UserForAdmin> userDTOs = users.stream().map((user) ->mapper.map(user, UserForAdmin.class)).collect(Collectors.toList());
+        List<UserForAdmin> userDTOs = users.stream()
+                .map(user -> mapper.map(user, UserForAdmin.class))
+                .collect(Collectors.toList());
         return ResponseEntity.status(HttpStatus.OK).body(userDTOs);
     }
 
-    @PostMapping("/user/change-password")
-    public ResponseEntity<?> changePassword(
-            @RequestBody ChangePasswordRequest request,
-            HttpServletRequest httpRequest
-    ) {
-        String username = httpRequest.getUserPrincipal().getName();
-
+    @PostMapping("/me/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody @Valid ChangePasswordRequest request) {
         userService.changePassword(
-                username,
+                currentUserUtil.currentUsername(),
                 request.getOldPassword(),
                 request.getNewPassword()
         );
-
         return ResponseEntity.ok("Đổi mật khẩu thành công");
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<UserForAdmin> getMyProfile() {
+        Users me = currentUserUtil.currentUser();
+        return ResponseEntity.ok(mapper.map(me, UserForAdmin.class));
+    }
 
     @GetMapping({"/{userId}"})
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<?> getUserDetails(@PathVariable Integer userId) {
-        Optional<Users> optionalUsers = this.userService.getUserById(userId);
+        Optional<Users> optionalUsers = userService.getUserById(userId);
         if (optionalUsers.isPresent()) {
-            Users users = (Users)optionalUsers.get();
-            return ResponseEntity.ok(users);
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Không có thông tin về id được tìm kiếm");
+            return ResponseEntity.ok(mapper.map(optionalUsers.get(), UserForAdmin.class));
         }
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body("Không có thông tin về id được tìm kiếm");
     }
 
     @PostMapping({"/create"})
-    public ResponseEntity<?> createUser(@RequestBody UserRequest userRequest) {
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<?> createUser(@RequestBody @Valid UserRequest userRequest) {
         userService.createUser(userRequest);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @PutMapping({"/edit/{userId}"})
-    public ResponseEntity<?> updateUser(@PathVariable Integer userId, @RequestBody @Valid UserRequest userRequest) {
+    public ResponseEntity<?> updateUser(@PathVariable Integer userId,
+                                        @RequestBody @Valid UserRequest userRequest) {
         Optional<Users> optionalUsers = userService.getUserById(userId);
-        if (optionalUsers.isPresent()) {
-            Users user = optionalUsers.get();
-            if (user.getRole().name().equals("ADMIN")) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Không thể chỉnh sửa user có role là ADMIN");
-            } else {
-                userService.updateUser(userId, userRequest);
-                return ResponseEntity.status(HttpStatus.OK).build();
-            }
-        } else {
+        if (optionalUsers.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("USER không có thông tin");
         }
+        Users target = optionalUsers.get();
+        Users me = currentUserUtil.currentUser();
+        boolean isAdmin = currentUserUtil.hasRole("ADMIN");
+
+        if (!isAdmin && !me.getUserId().equals(target.getUserId())) {
+            throw new AccessDeniedException("Bạn chỉ sửa được hồ sơ của chính mình");
+        }
+        if (!isAdmin && target.getRole().name().equals("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Không thể chỉnh sửa user có role là ADMIN");
+        }
+        userService.updateUser(userId, userRequest);
+        return ResponseEntity.status(HttpStatus.OK).build();
     }
 
     @DeleteMapping({"/{userId}"})
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<String> deleteUser(@PathVariable Integer userId) {
         Optional<Users> userToDelete = userService.getUserById(userId);
-        if (userToDelete.isPresent()) {
-            Users user = userToDelete.get();
-            if (user.getRole().name().equals("ADMIN")) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Không thể xóa user có role là ADMIN");
-            } else {
-                boolean delete = userService.deleteUser(userId);
-                return delete ? ResponseEntity.ok("Xóa user thành công") : ResponseEntity.status(HttpStatus.NOT_FOUND).body("Xóa không thành công");
-            }
-        } else {
+        if (userToDelete.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("USER không có thông tin");
         }
+        Users user = userToDelete.get();
+        if (user.getRole().name().equals("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Không thể xóa user có role là ADMIN");
+        }
+        boolean delete = userService.deleteUser(userId);
+        return delete
+                ? ResponseEntity.ok("Xóa user thành công")
+                : ResponseEntity.status(HttpStatus.NOT_FOUND).body("Xóa không thành công");
     }
 }

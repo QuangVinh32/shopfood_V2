@@ -23,7 +23,9 @@ public enum ErrorResponseBase {
     DOUBLE_USERNAME_EX(HttpStatus.BAD_REQUEST, "USERNAME đăng kí tồn tại hãy chọn USERNAME đăng kí khác "),
     Login_locked(HttpStatus.LOCKED, "nhập sai quá nhiều lần yêu cầu đăng nhập của bạn bị tạm khóa "),
     OLD_PASSWORD_INCORRECT(HttpStatus.BAD_REQUEST, "Mật khẩu cũ không chính xác"),
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"),
+    DUPLICATE_PHONE(HttpStatus.BAD_REQUEST, "Số điện thoại đã được sử dụng"),
+    INVALID_CREDENTIAL(HttpStatus.UNAUTHORIZED, "Tên đăng nhập hoặc mật khẩu không đúng");
 
 
     public final HttpStatus status;

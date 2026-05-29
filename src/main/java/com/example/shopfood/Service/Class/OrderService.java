@@ -8,11 +8,13 @@ import com.example.shopfood.Model.Request.Order.FilterOrder;
 import com.example.shopfood.Repository.*;
 import com.example.shopfood.Service.IOrderService;
 import com.example.shopfood.Specification.OrderSpecification;
+import com.example.shopfood.Utils.CurrentUserUtil;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +50,17 @@ public class OrderService implements IOrderService {
     @Autowired
     private  ProductSizeRepository productSizeRepository;
 
+    @Autowired
+    private CurrentUserUtil currentUserUtil;
+
+    private void assertOwnerOrAdmin(Order order) {
+        Users me = currentUserUtil.currentUser();
+        boolean isAdmin = currentUserUtil.hasRole("ADMIN");
+        if (!isAdmin && !order.getUser().getUserId().equals(me.getUserId())) {
+            throw new AccessDeniedException("Bạn không có quyền truy cập đơn hàng này");
+        }
+    }
+
 //    @Override
 //    public Page<Order> getAllOrdersPage(Pageable pageable, FilterOrder filterOrder) {
 //        Specification<Order> spec = OrderSpecification.buildSpec(filterOrder);
@@ -66,6 +79,8 @@ public class OrderService implements IOrderService {
     public OrderDTO getOrderById(Integer id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        assertOwnerOrAdmin(order);
 
         OrderDTO dto = new OrderDTO();
         dto.setCreatedAt(order.getCreatedAt());
@@ -87,8 +102,8 @@ public class OrderService implements IOrderService {
     @Transactional
     @Override
     public void createOrder(String voucherCode) throws Exception {
-        String fullName = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByFullName(fullName)
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Cart cart = cartRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
@@ -171,25 +186,32 @@ public class OrderService implements IOrderService {
             voucherService.applyVoucher(order.getOrderId(), voucherCode);
         }
 
-        // XÓA GIỎ HÀNG - PHẦN QUAN TRỌNG ĐÃ FIX
-        try {
-            // 1. Xóa cart details bằng native query
-            cartDetailRepository.deleteByCartIdNative(cart.getCartId());
-            // 2. Xóa cart bằng native query (chắc chắn nhất)
-            cartRepository.deleteCartByIdNative(cart.getCartId());  // CẦN THÊM METHOD NÀY
-            System.out.println("Cart deleted successfully");
-        } catch (Exception e) {
-            System.err.println("Error: " + e.getMessage());
-        }
+        // XÓA GIỎ HÀNG - nếu fail, rollback cả transaction (trừ kho + tạo order)
+        cartDetailRepository.deleteByCartIdNative(cart.getCartId());
+        cartRepository.deleteCartByIdNative(cart.getCartId());
     }
 
 
 
 
     @Override
+    @Transactional
     public OrderDTO updateOrder(int orderID, UpdateOrder updateOrder) throws Exception {
         Order order = orderRepository.findById(orderID)
                 .orElseThrow(() -> new Exception("Order not found"));
+
+        boolean isAdmin = currentUserUtil.hasRole("ADMIN");
+        boolean isOwner = order.getUser().getUserId()
+                .equals(currentUserUtil.currentUser().getUserId());
+        if (!isAdmin) {
+            // User chỉ được tự cancel đơn của mình; các status khác yêu cầu admin
+            if (!isOwner) {
+                throw new AccessDeniedException("Không có quyền sửa đơn hàng này");
+            }
+            if (updateOrder.getStatus() != OrderStatus.CANCELED) {
+                throw new AccessDeniedException("Chỉ admin được đổi sang trạng thái này");
+            }
+        }
 
         // Nếu hủy đơn hàng (từ PENDING -> CANCELLED), hoàn lại số lượng tồn kho THEO SIZE
         if (updateOrder.getStatus() == OrderStatus.CANCELED &&
@@ -290,7 +312,22 @@ public class OrderService implements IOrderService {
 
     @Override
     public void deleteOrder(int id) {
-        orderRepository.deleteById(id);
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        // Chỉ admin được xóa hẳn đơn (user nên dùng CANCEL thay vì delete)
+        if (!currentUserUtil.hasRole("ADMIN")) {
+            throw new AccessDeniedException("Chỉ admin được xóa đơn hàng");
+        }
+        orderRepository.delete(order);
+    }
+
+    @Override
+    public Page<OrderGetDTO> getMyOrders(Pageable pageable) {
+        Users me = currentUserUtil.currentUser();
+        FilterOrder f = new FilterOrder();
+        f.setUserId(me.getUserId());
+        Specification<Order> spec = OrderSpecification.buildSpec(f);
+        return orderRepository.findAll(spec, pageable).map(this::toDTO);
     }
 
     // ===== DOANH THU - chỉ tính đơn COMPLETED =====

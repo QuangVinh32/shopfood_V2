@@ -75,8 +75,12 @@ public class UserService implements IUserService, UserDetailsService {
     public void createUser(UserRequest userRequest) {
         if (userRepository.existsByEmail(userRequest.getEmail())) {
             throw new AppException(ErrorResponseBase.DOUBLE_EMAIL_EX);
-        } else if (userRepository.existsByUsername(userRequest.getUsername())) {
+        }
+        if (userRepository.existsByUsername(userRequest.getUsername())) {
             throw new AppException(ErrorResponseBase.DOUBLE_USERNAME_EX);
+        }
+        if (userRepository.existsByPhone(userRequest.getPhone())) {
+            throw new AppException(ErrorResponseBase.DUPLICATE_PHONE);
         }
 
         Users users = new Users();
@@ -85,7 +89,7 @@ public class UserService implements IUserService, UserDetailsService {
         users.setUsername(userRequest.getUsername());
         users.setAddress(userRequest.getAddress());
         users.setPhone(userRequest.getPhone());
-        users.setRole(Role.MANAGER);
+        users.setRole(Role.MANAGER); // endpoint này chỉ admin gọi → MANAGER hợp lý
         users.setFullName(userRequest.getFullName());
         userRepository.save(users);
     }
@@ -96,12 +100,23 @@ public class UserService implements IUserService, UserDetailsService {
         Users users = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorResponseBase.Id_not));
 
-        users.setUsername(userRequest.getUsername());
-        users.setPassword(encoder.encode(userRequest.getPassword()));
-        users.setPhone(userRequest.getPhone());
-        users.setFullName(userRequest.getFullName());
-        users.setEmail(userRequest.getEmail());
-        users.setAddress(userRequest.getAddress());
+        // Chỉ update field nếu được truyền vào (không null/blank)
+        if (userRequest.getPassword() != null && !userRequest.getPassword().isBlank()) {
+            users.setPassword(encoder.encode(userRequest.getPassword()));
+        }
+        if (userRequest.getPhone() != null && !userRequest.getPhone().isBlank()) {
+            users.setPhone(userRequest.getPhone());
+        }
+        if (userRequest.getFullName() != null && !userRequest.getFullName().isBlank()) {
+            users.setFullName(userRequest.getFullName());
+        }
+        if (userRequest.getEmail() != null && !userRequest.getEmail().isBlank()) {
+            users.setEmail(userRequest.getEmail());
+        }
+        if (userRequest.getAddress() != null && !userRequest.getAddress().isBlank()) {
+            users.setAddress(userRequest.getAddress());
+        }
+        // username không cho đổi (immutable theo entity)
         userRepository.save(users);
     }
 
@@ -109,12 +124,13 @@ public class UserService implements IUserService, UserDetailsService {
     @Transactional(rollbackOn = {Exception.class})
     public boolean deleteUser(Integer userId) {
         Optional<Users> optionalUsers = userRepository.findById(userId);
-        if (optionalUsers.isPresent()) {
-            userRepository.delete(optionalUsers.get());
-            return true;
-        } else {
-            return false;
+        if (optionalUsers.isEmpty()) return false;
+        Users u = optionalUsers.get();
+        if (u.getOrders() != null && !u.getOrders().isEmpty()) {
+            throw new RuntimeException("Không xóa được: user có lịch sử đơn hàng. Hãy vô hiệu hóa thay vì xóa.");
         }
+        userRepository.delete(u);
+        return true;
     }
 
     @Override

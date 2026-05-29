@@ -20,57 +20,47 @@ public class OrderSpecification {
             @Override
             public Predicate toPredicate(@NotNull Root<Order> root,
                                          @NotNull CriteriaQuery<?> query,
-                                         @NotNull CriteriaBuilder criteriaBuilder) {
+                                         @NotNull CriteriaBuilder cb) {
 
                 List<Predicate> predicates = new ArrayList<>();
                 List<jakarta.persistence.criteria.Order> orders = new ArrayList<>();
 
-                // Tìm kiếm theo tên hoặc địa chỉ
                 if (StringUtils.hasText(form.getSearch())) {
-                    predicates.add(criteriaBuilder.or(
-                            criteriaBuilder.like(root.get("fullName"), "%" + form.getSearch() + "%"),
-                            criteriaBuilder.like(root.get("address"), "%" + form.getSearch() + "%")
+                    String like = "%" + form.getSearch() + "%";
+                    predicates.add(cb.or(
+                            cb.like(root.get("user").get("fullName"), like),
+                            cb.like(root.get("user").get("address"), like)
                     ));
                 }
 
-                // Lọc theo ID
+                if (form.getUserId() != null) {
+                    predicates.add(cb.equal(root.get("user").get("userId"), form.getUserId()));
+                }
+
                 if (form.getMinId() != null) {
-                    predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("orderId"), form.getMinId()));
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("orderId"), form.getMinId()));
                 }
                 if (form.getMaxId() != null) {
-                    predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("orderId"), form.getMaxId()));
+                    predicates.add(cb.lessThanOrEqualTo(root.get("orderId"), form.getMaxId()));
                 }
 
-                // Lọc theo tổng tiền
                 if (form.getMinTotal() != null) {
-                    predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("total"), form.getMinTotal()));
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("totalAmount"), form.getMinTotal()));
                 }
                 if (form.getMaxTotal() != null) {
-                    predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("total"), form.getMaxTotal()));
+                    predicates.add(cb.lessThanOrEqualTo(root.get("totalAmount"), form.getMaxTotal()));
                 }
 
-                // Sắp xếp theo ID
-                if (Boolean.TRUE.equals(form.getIdAsc())) {
-                    orders.add(criteriaBuilder.asc(root.get("orderId")));
-                }
-                if (Boolean.TRUE.equals(form.getIdDesc())) {
-                    orders.add(criteriaBuilder.desc(root.get("orderId")));
-                }
+                if (Boolean.TRUE.equals(form.getIdAsc()))    orders.add(cb.asc(root.get("orderId")));
+                if (Boolean.TRUE.equals(form.getIdDesc()))   orders.add(cb.desc(root.get("orderId")));
+                if (Boolean.TRUE.equals(form.getTotalAsc()))  orders.add(cb.asc(root.get("totalAmount")));
+                if (Boolean.TRUE.equals(form.getTotalDesc())) orders.add(cb.desc(root.get("totalAmount")));
 
-                // Sắp xếp theo tổng tiền
-                if (Boolean.TRUE.equals(form.getTotalAsc())) {
-                    orders.add(criteriaBuilder.asc(root.get("total")));
-                }
-                if (Boolean.TRUE.equals(form.getTotalDesc())) {
-                    orders.add(criteriaBuilder.desc(root.get("total")));
-                }
-
-                // Thêm sắp xếp vào query nếu có
                 if (!orders.isEmpty()) {
                     query.orderBy(orders);
                 }
 
-                return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+                return cb.and(predicates.toArray(new Predicate[0]));
             }
         };
     }

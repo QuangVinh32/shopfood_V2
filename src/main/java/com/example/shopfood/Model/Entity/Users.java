@@ -40,13 +40,13 @@ public class Users {
     private String fullName;
     @Column(
             name = "address",
-            nullable = false,
-            unique = true
+            nullable = false
     )
     private String address;
     @Column(
             name = "email",
-            nullable = false
+            nullable = false,
+            unique = true
     )
     private String email;
     @Column(
@@ -60,19 +60,15 @@ public class Users {
             length = 8
     )
     private Role role;
-    @OneToMany(
-            mappedBy = "user",
-            cascade = {CascadeType.ALL}
-    )
+
+    // KHÔNG cascade ALL — không xóa đơn/review khi xóa user (giữ lịch sử)
+    @OneToMany(mappedBy = "user")
     private List<Order> orders;
-    @OneToMany(
-            mappedBy = "user",
-            cascade = {CascadeType.ALL}
-    )
+
+    @OneToMany(mappedBy = "user")
     private List<Review> reviews;
-    @OneToOne(
-            mappedBy = "user",
-            cascade = {CascadeType.ALL}
-    )
+
+    // Cart có thể xóa cùng user
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Cart cart;
 }

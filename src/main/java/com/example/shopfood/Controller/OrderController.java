@@ -7,22 +7,22 @@ import com.example.shopfood.Model.Request.Order.FilterOrder;
 import com.example.shopfood.Model.Request.Order.UpdateOrder;
 import com.example.shopfood.Service.IOrderService;
 import com.example.shopfood.Service.IVoucherService;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping({"/api/v1/orders"})
 public class OrderController {
     @Autowired
     private IOrderService orderService;
-    @Autowired
-    private ModelMapper mapper;
     @Autowired
     private IVoucherService voucherService;
 
@@ -37,16 +37,8 @@ public class OrderController {
         );
     }
 
-
-//    @GetMapping({"/get-all"})
-//    public ResponseEntity<Page<OrderDTO>> findAllOrderPage(Pageable pageable, @ModelAttribute FilterOrder filterOrder) {
-//        Page<Order> productsPage = orderService.getAllOrdersPage(pageable, filterOrder);
-//        Page<OrderDTO> orderDTOPage = productsPage.map((order) -> mapper.map(order, OrderDTO.class));
-//        return ResponseEntity.ok(orderDTOPage);
-//    }
-
     @GetMapping("/admin/orders")
-//    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<Page<OrderGetDTO>> getAllOrdersForAdmin(
             Pageable pageable,
             FilterOrder filterOrder
@@ -56,6 +48,10 @@ public class OrderController {
         );
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<Page<OrderGetDTO>> getMyOrders(Pageable pageable) {
+        return ResponseEntity.ok(orderService.getMyOrders(pageable));
+    }
 
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestParam(required = false) String voucherCode) {
@@ -64,10 +60,11 @@ public class OrderController {
             return ResponseEntity.ok("Đơn hàng đã được tạo thành công.");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage()); // <-- xử lý RuntimeException
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
-            e.printStackTrace(); // Log ra console để biết nguyên nhân
             return ResponseEntity.internalServerError().body("Có lỗi xảy ra khi tạo đơn hàng.");
         }
     }
@@ -77,30 +74,42 @@ public class OrderController {
         try {
             OrderDTO updatedOrder = orderService.updateOrder(orderId, updateOrder);
             return ResponseEntity.ok(updatedOrder);
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
 
     @DeleteMapping({"/{id}"})
-    public ResponseEntity<Void> deleteOrder(@PathVariable int id) {
-        orderService.deleteOrder(id);
-        return ResponseEntity.noContent().build();
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<?> deleteOrder(@PathVariable int id) {
+        try {
+            orderService.deleteOrder(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<OrderDTO> getOrderById(@PathVariable int id) {
-        OrderDTO orderDTO = orderService.getOrderById(id);
-        return ResponseEntity.ok(orderDTO);
+    public ResponseEntity<?> getOrderById(@PathVariable int id) {
+        try {
+            return ResponseEntity.ok(orderService.getOrderById(id));
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 
-    // ===== DOANH THU (chỉ tính đơn COMPLETED) =====
     @GetMapping("/admin/revenue")
-    public ResponseEntity<?> getRevenue() {
-        return ResponseEntity.ok(new java.util.HashMap<String, Long>() {{
-            put("originalRevenue", orderService.getTotalOriginalRevenue());
-            put("totalDiscount", orderService.getTotalDiscount());
-            put("netRevenue", orderService.getTotalRevenue());
-        }});
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<Map<String, Long>> getRevenue() {
+        return ResponseEntity.ok(Map.of(
+                "originalRevenue", orderService.getTotalOriginalRevenue(),
+                "totalDiscount", orderService.getTotalDiscount(),
+                "netRevenue", orderService.getTotalRevenue()
+        ));
     }
 }
