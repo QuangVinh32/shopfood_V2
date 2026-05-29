@@ -20,6 +20,7 @@ public interface IVoucherService {
             Integer orderId,
             String code
     );
+    void rollbackVoucher(Order order);
     List<Voucher> getAllForAdmin();
     List<Voucher> getAllForUsers();
     Optional<Voucher> getVoucherByCode(String code);

@@ -22,4 +22,10 @@ public interface IOrderService {
     OrderDTO updateOrder(int orderID, UpdateOrder updateOrder) throws Exception;
 
     void deleteOrder(int id);
+
+    Long getTotalRevenue();
+
+    Long getTotalOriginalRevenue();
+
+    Long getTotalDiscount();
 }

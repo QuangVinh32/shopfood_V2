@@ -17,4 +17,13 @@ public interface OrderRepository extends JpaRepository<Order, Integer>, JpaSpeci
             Users user, Product product, OrderStatus orderStatus
     );
 
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.orderStatus = :status")
+    Long sumTotalAmountByStatus(@Param("status") OrderStatus status);
+
+    @Query("SELECT COALESCE(SUM(o.originalAmount), 0) FROM Order o WHERE o.orderStatus = :status")
+    Long sumOriginalAmountByStatus(@Param("status") OrderStatus status);
+
+    @Query("SELECT COALESCE(SUM(o.discountAmount), 0) FROM Order o WHERE o.orderStatus = :status")
+    Long sumDiscountAmountByStatus(@Param("status") OrderStatus status);
+
 }

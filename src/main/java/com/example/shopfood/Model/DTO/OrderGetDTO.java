@@ -9,6 +9,8 @@ import java.util.List;
 @Data
 public class OrderGetDTO {
     private Integer orderId;
+    private Integer originalAmount;
+    private Integer discountAmount;
     private Integer totalAmount;
     private OrderStatus status;
     private Date createdAt;

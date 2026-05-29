@@ -180,20 +180,27 @@ public class VoucherService implements IVoucherService {
         }
 
         // ===== TÍNH GIẢM GIÁ =====
-        int originalAmount = order.getTotalAmount();
+        int originalAmount = order.getOriginalAmount() != null
+                ? order.getOriginalAmount()
+                : order.getTotalAmount();
         int discount;
 
         if (voucher.getDiscountType() == DiscountType.FIXED) {
             discount = voucher.getDiscountValue();
         } else {
-            discount = originalAmount * voucher.getDiscountValue() / 100;
+            discount = (int) Math.round(
+                    originalAmount * (double) voucher.getDiscountValue() / 100.0
+            );
             if (voucher.getMaxDiscount() != null) discount = Math.min(discount, voucher.getMaxDiscount());
         }
 
+        discount = Math.min(discount, originalAmount);
         int finalAmount = Math.max(0, originalAmount - discount);
 
         // ===== UPDATE ORDER =====
         order.setVoucher(voucher);
+        order.setOriginalAmount(originalAmount);
+        order.setDiscountAmount(discount);
         order.setTotalAmount(finalAmount);
 
         // ===== UPDATE VOUCHER =====
@@ -219,6 +226,36 @@ public class VoucherService implements IVoucherService {
         return new VoucherApplyResult(originalAmount, discount, finalAmount);
     }
 
+
+    // ================= ROLLBACK =================
+    @Override
+    @Transactional
+    public void rollbackVoucher(Order order) {
+        if (order == null) return;
+
+        Voucher voucher = order.getVoucher();
+        if (voucher == null) return;
+
+        if (voucher.getUsedCount() != null && voucher.getUsedCount() > 0) {
+            voucher.setUsedCount(voucher.getUsedCount() - 1);
+            voucherRepository.save(voucher);
+        }
+
+        userVoucherRepository.findByUserAndVoucher(order.getUser(), voucher)
+                .ifPresent(uv -> {
+                    if (uv.getUsedCount() != null && uv.getUsedCount() > 0) {
+                        uv.setUsedCount(uv.getUsedCount() - 1);
+                        userVoucherRepository.save(uv);
+                    }
+                });
+
+        if (order.getOriginalAmount() != null) {
+            order.setTotalAmount(order.getOriginalAmount());
+        }
+        order.setDiscountAmount(0);
+        order.setVoucher(null);
+        orderRepository.save(order);
+    }
 
     // ================= OTHERS =================
     @Override

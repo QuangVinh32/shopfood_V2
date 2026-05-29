@@ -101,7 +101,7 @@ public class OrderService implements IOrderService {
         order.setOrderStatus(OrderStatus.PENDING);
         order.setUser(user);
         orderRepository.save(order);
-        int totalAmount = 0;
+        double totalAmount = 0.0;
 
         // Lưu danh sách cart details để xóa sau
         List<CartDetail> cartDetails = new ArrayList<>(cart.getCartDetails());
@@ -160,8 +160,17 @@ public class OrderService implements IOrderService {
             orderDetailRepository.save(orderDetail);
         }
 
-        order.setTotalAmount(totalAmount);
+        int roundedTotal = (int) Math.round(totalAmount);
+        order.setOriginalAmount(roundedTotal);
+        order.setDiscountAmount(0);
+        order.setTotalAmount(roundedTotal);
         orderRepository.save(order);
+
+        // ÁP VOUCHER NẾU CÓ
+        if (voucherCode != null && !voucherCode.isBlank()) {
+            voucherService.applyVoucher(order.getOrderId(), voucherCode);
+        }
+
         // XÓA GIỎ HÀNG - PHẦN QUAN TRỌNG ĐÃ FIX
         try {
             // 1. Xóa cart details bằng native query
@@ -193,6 +202,11 @@ public class OrderService implements IOrderService {
                     productSizeRepository.save(productSize);
                 }
                 // KHÔNG CẦN XỬ LÝ Product vì không có quantity
+            }
+
+            // HOÀN LẠI VOUCHER (usedCount + userVoucher.usedCount)
+            if (order.getVoucher() != null) {
+                voucherService.rollbackVoucher(order);
             }
         }
 
@@ -246,6 +260,8 @@ public class OrderService implements IOrderService {
         Users u = order.getUser();
         OrderGetDTO dto = new OrderGetDTO();
         dto.setOrderId(order.getOrderId());
+        dto.setOriginalAmount(order.getOriginalAmount());
+        dto.setDiscountAmount(order.getDiscountAmount());
         dto.setTotalAmount(order.getTotalAmount());
         dto.setStatus(order.getOrderStatus());
         dto.setCreatedAt(order.getCreatedAt());
@@ -275,5 +291,21 @@ public class OrderService implements IOrderService {
     @Override
     public void deleteOrder(int id) {
         orderRepository.deleteById(id);
+    }
+
+    // ===== DOANH THU - chỉ tính đơn COMPLETED =====
+    @Override
+    public Long getTotalRevenue() {
+        return orderRepository.sumTotalAmountByStatus(OrderStatus.COMPLETED);
+    }
+
+    @Override
+    public Long getTotalOriginalRevenue() {
+        return orderRepository.sumOriginalAmountByStatus(OrderStatus.COMPLETED);
+    }
+
+    @Override
+    public Long getTotalDiscount() {
+        return orderRepository.sumDiscountAmountByStatus(OrderStatus.COMPLETED);
     }
 }

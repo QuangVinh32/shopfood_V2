@@ -93,4 +93,14 @@ public class OrderController {
         OrderDTO orderDTO = orderService.getOrderById(id);
         return ResponseEntity.ok(orderDTO);
     }
+
+    // ===== DOANH THU (chỉ tính đơn COMPLETED) =====
+    @GetMapping("/admin/revenue")
+    public ResponseEntity<?> getRevenue() {
+        return ResponseEntity.ok(new java.util.HashMap<String, Long>() {{
+            put("originalRevenue", orderService.getTotalOriginalRevenue());
+            put("totalDiscount", orderService.getTotalDiscount());
+            put("netRevenue", orderService.getTotalRevenue());
+        }});
+    }
 }

@@ -19,6 +19,14 @@ public class Order {
     )
     private Integer orderId;
     @Column(
+            name = "original_amount"
+    )
+    private Integer originalAmount;
+    @Column(
+            name = "discount_amount"
+    )
+    private Integer discountAmount;
+    @Column(
             name = "total_amount"
     )
     private Integer totalAmount;
