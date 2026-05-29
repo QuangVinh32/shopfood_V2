@@ -3,6 +3,8 @@ package com.example.shopfood.Service.Class;
 import com.example.shopfood.Model.Entity.Product;
 import com.example.shopfood.Model.Entity.ProductSize;
 import com.example.shopfood.Model.Request.Product.ProductSizeRequest;
+import com.example.shopfood.Repository.CartDetailRepository;
+import com.example.shopfood.Repository.OrderDetailRepository;
 import com.example.shopfood.Repository.ProductRepository;
 import com.example.shopfood.Repository.ProductSizeRepository;
 import com.example.shopfood.Service.IProductSizeService;
@@ -22,6 +24,8 @@ public class ProductSizeService implements IProductSizeService {
 
     private final ProductRepository productRepository;
     private final ProductSizeRepository productSizeRepository;
+    private final CartDetailRepository cartDetailRepository;
+    private final OrderDetailRepository orderDetailRepository;
 
     // ================= GET =================
 
@@ -156,7 +160,7 @@ public class ProductSizeService implements IProductSizeService {
             }
         }
 
-        // DELETE các size không còn gửi lên
+        // DELETE các size không còn gửi lên — nhưng CHỈ xóa được nếu chưa có cart/order tham chiếu
         List<Integer> requestIds = requests.stream()
             .map(ProductSizeRequest::getProductSizeId)
             .filter(id -> id != null)
@@ -164,6 +168,16 @@ public class ProductSizeService implements IProductSizeService {
 
         existingSizes.stream()
             .filter(size -> !requestIds.contains(size.getProductSizeId()))
-            .forEach(productSizeRepository::delete);
+            .forEach(size -> {
+                boolean inCart = cartDetailRepository.existsByProductSize(size);
+                boolean inOrder = orderDetailRepository.existsByProductSize(size);
+                if (inCart || inOrder) {
+                    // Soft-disable: set quantity=0 để FE hiện "Ngừng bán" thay vì xóa hẳn
+                    size.setQuantity(0);
+                    productSizeRepository.save(size);
+                } else {
+                    productSizeRepository.delete(size);
+                }
+            });
     }
 }

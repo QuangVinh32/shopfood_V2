@@ -1,6 +1,6 @@
 package com.example.shopfood.Controller;
 
-import com.example.shopfood.Service.Class.ProductImageService;
+import com.example.shopfood.Service.IProductImageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +13,7 @@ import java.io.IOException;
 public class ProductImageController {
 
     @Autowired
-    private ProductImageService productImageService;
+    private IProductImageService productImageService;
 
     @PostMapping("/{productId}/images")
     public ResponseEntity<String> uploadImage(

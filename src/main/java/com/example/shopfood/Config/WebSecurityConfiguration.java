@@ -1,7 +1,7 @@
 package com.example.shopfood.Config;
 
-import com.example.shopfood.Service.Class.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -27,7 +27,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 public class WebSecurityConfiguration {
 
     @Autowired
-    private UserService userService;
+    private UserDetailsService userService;
 
     @Autowired
     private JwtRequestFilter jwtRequestFilter;
@@ -51,7 +51,14 @@ public class WebSecurityConfiguration {
                 .cors(withDefaults())
                 .authorizeHttpRequests(authz -> authz
                         // PUBLIC
-                        .requestMatchers(HttpMethod.POST, "/api/login", "/api/register").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/login",
+                                "/api/register",
+                                "/api/auth/refresh",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/payments/momo/ipn"
+                        ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/products/get-all",
                                 "/api/products/user/**",
@@ -59,17 +66,30 @@ public class WebSecurityConfiguration {
                                 "/api/products/find-by-id/**",
                                 "/api/categories/get-all",
                                 "/api/product_sizes/product/**",
-                                "/files/image/**"
+                                "/files/image/**",
+                                "/api/auth/verify-email",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/actuator/health"
                         ).permitAll()
 
                         // ADMIN-ONLY
                         .requestMatchers(HttpMethod.POST, "/api/products", "/api/products/**").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/product_sizes/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/product_sizes/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/product_sizes/**").hasAuthority("ADMIN")
                         .requestMatchers("/api/categories/**").hasAuthority("ADMIN")
                         .requestMatchers("/api/banners/**").hasAuthority("ADMIN")
-                        .requestMatchers("/api/vouchers/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/vouchers").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/vouchers/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/vouchers/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/v1/vouchers/admin/**").hasAuthority("ADMIN")
                         .requestMatchers("/api/v1/orders/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/notifications").hasAuthority("ADMIN")
+                        .requestMatchers("/api/notifications/admin/**").hasAuthority("ADMIN")
 
                         // AUTHENTICATED USERS (USER + MANAGER + ADMIN)
                         .requestMatchers("/api/carts/**").authenticated()

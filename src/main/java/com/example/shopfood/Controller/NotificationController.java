@@ -6,6 +6,7 @@ import com.example.shopfood.Service.INotificationService;
 import com.example.shopfood.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +39,7 @@ public class NotificationController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<?> createNotification(
             @RequestBody NotificationRequest request
     ) {
@@ -69,6 +71,7 @@ public class NotificationController {
     }
 
     @GetMapping("/admin")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<List<NotificationDTO>> adminGetAll() {
         return ResponseEntity.ok(
                 notificationService.getAllForAdmin()

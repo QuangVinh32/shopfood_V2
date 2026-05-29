@@ -18,9 +18,10 @@ public class OrderDetail {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @Id
     @ManyToOne
     @JoinColumn(name = "product_size_id", nullable = false)
-    private ProductSize productSize; // Thêm thông tin size
+    private ProductSize productSize;
 
     @Column(nullable = false)
     private Integer quantity;

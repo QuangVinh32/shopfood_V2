@@ -25,7 +25,9 @@ public enum ErrorResponseBase {
     OLD_PASSWORD_INCORRECT(HttpStatus.BAD_REQUEST, "Mật khẩu cũ không chính xác"),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"),
     DUPLICATE_PHONE(HttpStatus.BAD_REQUEST, "Số điện thoại đã được sử dụng"),
-    INVALID_CREDENTIAL(HttpStatus.UNAUTHORIZED, "Tên đăng nhập hoặc mật khẩu không đúng");
+    INVALID_CREDENTIAL(HttpStatus.UNAUTHORIZED, "Tên đăng nhập hoặc mật khẩu không đúng"),
+    ACCOUNT_DISABLED(HttpStatus.FORBIDDEN, "Tài khoản đã bị vô hiệu hóa"),
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Email chưa xác thực, vui lòng kiểm tra hộp thư");
 
 
     public final HttpStatus status;

@@ -5,6 +5,7 @@ import com.example.shopfood.Model.Entity.ProductSize;
 import com.example.shopfood.Model.Request.Product.ProductSizeRequest;
 import com.example.shopfood.Service.IProductSizeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,6 +43,7 @@ public class ProductSizeController {
     // ================= CREATE =================
 
     @PostMapping("/product/{productId}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ProductSize create(
             @PathVariable Integer productId,
             @RequestBody ProductSizeRequest request
@@ -52,6 +54,7 @@ public class ProductSizeController {
     // ================= UPDATE =================
 
     @PutMapping("/{sizeId}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public ProductSize update(
             @PathVariable Integer sizeId,
             @RequestBody ProductSizeRequest request
@@ -72,6 +75,7 @@ public class ProductSizeController {
     // ================= BULK UPSERT =================
 
     @PostMapping("/bulk/{productId}")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public void bulkUpsert(
             @PathVariable Integer productId,
             @RequestBody List<ProductSizeRequest> requests

@@ -166,23 +166,45 @@ public class VoucherService implements IVoucherService {
         if (voucher.getMinOrderValue() != null && order.getTotalAmount() < voucher.getMinOrderValue())
             throw new RuntimeException("Đơn hàng chưa đạt giá trị tối thiểu");
 
-        if (voucher.getUsageLimitGlobal() != null && voucher.getUsedCount() >= voucher.getUsageLimitGlobal())
+        // ===== ATOMIC: tăng usedCount toàn cục nếu chưa hết lượt =====
+        // Chống race condition khi 2 user dùng voucher đồng thời
+        int updated = voucherRepository.incrementUsedCountIfAvailable(voucher.getVoucherId());
+        if (updated == 0) {
             throw new RuntimeException("Voucher đã hết lượt sử dụng");
+        }
 
-        // ===== CHECK THEO USER (CHO CẢ USER + ALL) =====
+        // ===== CHECK + ATOMIC tăng usedCount per-user =====
         UserVoucher userVoucher = userVoucherRepository.findByUserAndVoucher(user, voucher).orElse(null);
-
-        if (voucher.getUsageLimitPerUser() != null) {
-
-            if (userVoucher != null && userVoucher.getUsedCount() >= voucher.getUsageLimitPerUser()) {
+        if (userVoucher == null) {
+            // Lần đầu user dùng voucher → tạo bản ghi với usedCount = 1
+            userVoucher = new UserVoucher();
+            userVoucher.setUser(user);
+            userVoucher.setVoucher(voucher);
+            userVoucher.setAssignedAt(now);
+            userVoucher.setUsedCount(1);
+            userVoucher.setLastUsedAt(now);
+            try {
+                userVoucherRepository.save(userVoucher);
+            } catch (Exception e) {
+                // race: 2 request cùng tạo → unique constraint vi phạm → rollback voucher
+                voucherRepository.decrementUsedCount(voucher.getVoucherId());
+                throw new RuntimeException("Áp voucher thất bại, vui lòng thử lại");
+            }
+        } else {
+            int uvUpdated = userVoucherRepository.incrementUsedCountIfAvailable(userVoucher.getUserVoucherId());
+            if (uvUpdated == 0) {
+                // Rollback global vì không pass per-user limit
+                voucherRepository.decrementUsedCount(voucher.getVoucherId());
                 throw new RuntimeException("Bạn đã dùng hết lượt voucher này");
             }
         }
 
         // ===== TÍNH GIẢM GIÁ =====
+        // originalAmount = subtotal (KHÔNG bao gồm shipping fee)
         int originalAmount = order.getOriginalAmount() != null
                 ? order.getOriginalAmount()
                 : order.getTotalAmount();
+        int shippingFee = order.getShippingFee() != null ? order.getShippingFee() : 0;
         int discount;
 
         if (voucher.getDiscountType() == DiscountType.FIXED) {
@@ -194,34 +216,19 @@ public class VoucherService implements IVoucherService {
             if (voucher.getMaxDiscount() != null) discount = Math.min(discount, voucher.getMaxDiscount());
         }
 
+        // Voucher chỉ giảm trên subtotal, không vượt quá subtotal
         discount = Math.min(discount, originalAmount);
-        int finalAmount = Math.max(0, originalAmount - discount);
+
+        // Công thức tổng tiền chuẩn: subtotal - discount + shipping
+        int finalAmount = Math.max(0, originalAmount - discount) + shippingFee;
 
         // ===== UPDATE ORDER =====
+        // (voucher.usedCount + userVoucher.usedCount đã được tăng atomic ở trên)
         order.setVoucher(voucher);
         order.setOriginalAmount(originalAmount);
         order.setDiscountAmount(discount);
         order.setTotalAmount(finalAmount);
-
-        // ===== UPDATE VOUCHER =====
-        voucher.setUsedCount(voucher.getUsedCount() + 1);
-
-        // ===== UPDATE USER_VOUCHER =====
-        if (userVoucher == null) {
-            userVoucher = new UserVoucher();
-            userVoucher.setUser(user);
-            userVoucher.setVoucher(voucher);
-            userVoucher.setAssignedAt(now);
-            userVoucher.setUsedCount(1);
-        } else {
-            userVoucher.setUsedCount(userVoucher.getUsedCount() + 1);
-        }
-
-        userVoucher.setLastUsedAt(now);
-
-        userVoucherRepository.save(userVoucher);
         orderRepository.save(order);
-        voucherRepository.save(voucher);
 
         return new VoucherApplyResult(originalAmount, discount, finalAmount);
     }
@@ -236,21 +243,16 @@ public class VoucherService implements IVoucherService {
         Voucher voucher = order.getVoucher();
         if (voucher == null) return;
 
-        if (voucher.getUsedCount() != null && voucher.getUsedCount() > 0) {
-            voucher.setUsedCount(voucher.getUsedCount() - 1);
-            voucherRepository.save(voucher);
-        }
+        // Atomic decrement chống race condition
+        voucherRepository.decrementUsedCount(voucher.getVoucherId());
 
         userVoucherRepository.findByUserAndVoucher(order.getUser(), voucher)
-                .ifPresent(uv -> {
-                    if (uv.getUsedCount() != null && uv.getUsedCount() > 0) {
-                        uv.setUsedCount(uv.getUsedCount() - 1);
-                        userVoucherRepository.save(uv);
-                    }
-                });
+                .ifPresent(uv -> userVoucherRepository.decrementUsedCount(uv.getUserVoucherId()));
 
+        // Khôi phục total = subtotal + shipping (KHÔNG giảm giá nữa)
         if (order.getOriginalAmount() != null) {
-            order.setTotalAmount(order.getOriginalAmount());
+            int shippingFee = order.getShippingFee() != null ? order.getShippingFee() : 0;
+            order.setTotalAmount(order.getOriginalAmount() + shippingFee);
         }
         order.setDiscountAmount(0);
         order.setVoucher(null);

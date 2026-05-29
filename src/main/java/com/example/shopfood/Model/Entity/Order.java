@@ -59,6 +59,21 @@ public class Order {
     @JoinColumn(name = "voucher_id")
     private Voucher voucher;
 
+    @Column(name = "receiver_name", length = 100)
+    private String receiverName;
+
+    @Column(name = "receiver_phone", length = 20)
+    private String receiverPhone;
+
+    @Column(name = "shipping_address", length = 500)
+    private String shippingAddress;
+
+    @Column(name = "shipping_fee", nullable = false)
+    private Integer shippingFee = 0;
+
+    @Column(name = "note", length = 500)
+    private String note;
+
     @OneToMany(
             mappedBy = "order",
             cascade = {CascadeType.ALL}

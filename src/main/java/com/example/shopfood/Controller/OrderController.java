@@ -53,17 +53,39 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getMyOrders(pageable));
     }
 
+    /**
+     * @deprecated dùng {@link #checkout} thay thế. Endpoint này không có shipping address.
+     */
+    @Deprecated
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestParam(required = false) String voucherCode) {
         try {
             orderService.createOrder(voucherCode);
-            return ResponseEntity.ok("Đơn hàng đã được tạo thành công.");
+            return ResponseEntity.ok("Đơn hàng đã được tạo thành công. (Khuyến nghị dùng POST /checkout)");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Có lỗi xảy ra khi tạo đơn hàng.");
+        }
+    }
+
+    @PostMapping("/checkout")
+    public ResponseEntity<?> checkout(
+            @RequestParam Integer shippingAddressId,
+            @RequestParam(required = false) String voucherCode,
+            @RequestParam(required = false) String note
+    ) {
+        try {
+            Integer orderId = orderService.createOrderFull(shippingAddressId, voucherCode, note);
+            return ResponseEntity.ok(Map.of("orderId", orderId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Có lỗi xảy ra khi tạo đơn hàng.");
         }

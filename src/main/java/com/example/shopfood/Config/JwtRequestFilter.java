@@ -30,7 +30,11 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private static final Map<String, List<String>> PUBLIC_PATHS = Map.of(
             HttpMethod.POST.name(), List.of(
                     "/api/login",
-                    "/api/register"
+                    "/api/register",
+                    "/api/auth/refresh",
+                    "/api/auth/forgot-password",
+                    "/api/auth/reset-password",
+                    "/api/payments/momo/ipn"
             ),
             HttpMethod.GET.name(), List.of(
                     "/api/products/get-all",
@@ -39,7 +43,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     "/api/products/find-by-id/**",
                     "/api/categories/get-all",
                     "/api/product_sizes/product/**",
-                    "/files/image/**"
+                    "/files/image/**",
+                    "/api/auth/verify-email",
+                    "/swagger-ui.html",
+                    "/swagger-ui/**",
+                    "/v3/api-docs/**",
+                    "/actuator/health"
             )
     );
 

@@ -26,10 +26,12 @@ import java.util.Date;
 @Component
 public class JwtTokenUtils {
     private static final Logger log = LoggerFactory.getLogger(JwtTokenUtils.class);
-    private static final long EXPIRATION = 864000000L;
 
     @Value("${app.jwt.secret:}")
     private String secret;
+
+    @Value("${app.jwt.access-token-expiration-ms:900000}")
+    private long accessTokenExpirationMs;
 
     private static final String PREFIX_TOKEN = "Bearer";
     private static final String AUTHORIZATION = "Authorization";
@@ -51,7 +53,7 @@ public class JwtTokenUtils {
     private TokenRepository tokenRepository;
 
     public String createAccessToken(LoginDTO loginDTO) {
-        Date expirationDate = new Date(System.currentTimeMillis() + EXPIRATION);
+        Date expirationDate = new Date(System.currentTimeMillis() + accessTokenExpirationMs);
         String token = Jwts.builder()
                 .setId(String.valueOf(loginDTO.getUserId()))
                 .setSubject(loginDTO.getUsername())

@@ -42,17 +42,23 @@ public class ReviewService implements IReviewService {
     }
 
     public Review updateReview(int reviewId, UpdateReview request) throws IOException {
-        Review existingReview = reviewRepository.findById(reviewId).orElseThrow(() -> new EntityNotFoundException("Review not found with id: " + reviewId));
+        Review existingReview = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new EntityNotFoundException("Review not found with id: " + reviewId));
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        Users user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
+        Users user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 🔒 Ownership check: chỉ chủ review được sửa
+        if (!existingReview.getUser().getUserId().equals(user.getUserId())) {
+            throw new SecurityException("Bạn không có quyền sửa review này");
+        }
+
         if (request.getRating() != null) {
             existingReview.setRating(request.getRating());
         }
-
         if (request.getReviewText() != null) {
             existingReview.setReviewText(request.getReviewText());
         }
-
         return reviewRepository.save(existingReview);
     }
 

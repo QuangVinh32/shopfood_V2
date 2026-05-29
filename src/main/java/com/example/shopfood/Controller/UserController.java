@@ -8,7 +8,7 @@ import com.example.shopfood.Model.DTO.UserForAdmin;
 import com.example.shopfood.Model.Entity.Users;
 import com.example.shopfood.Model.Request.User.ChangePasswordRequest;
 import com.example.shopfood.Model.Request.User.UserRequest;
-import com.example.shopfood.Service.Class.UserService;
+import com.example.shopfood.Service.IUserService;
 import com.example.shopfood.Utils.CurrentUserUtil;
 import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping({"/api/v1/users"})
 public class UserController {
     @Autowired
-    private UserService userService;
+    private IUserService userService;
     @Autowired
     private ModelMapper mapper;
     @Autowired

@@ -12,6 +12,7 @@ import com.example.shopfood.Model.Entity.Role;
 import com.example.shopfood.Model.Entity.Users;
 import com.example.shopfood.Model.Request.User.UserRequest;
 import com.example.shopfood.Repository.UserRepository;
+import com.example.shopfood.Service.IRefreshTokenService;
 import com.example.shopfood.Service.IUserService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,9 @@ public class UserService implements IUserService, UserDetailsService {
 
     @Autowired
     private BCryptPasswordEncoder encoder;
+
+    @Autowired
+    private IRefreshTokenService refreshTokenService;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -148,6 +152,9 @@ public class UserService implements IUserService, UserDetailsService {
         // Encode mật khẩu mới
         user.setPassword(encoder.encode(newPassword));
         userRepository.save(user);
+
+        // Revoke tất cả refresh token → buộc login lại trên tất cả thiết bị
+        refreshTokenService.revokeAllForUser(user);
     }
 
 }

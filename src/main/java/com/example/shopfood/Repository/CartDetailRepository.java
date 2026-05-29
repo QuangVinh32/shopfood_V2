@@ -18,6 +18,9 @@ public interface CartDetailRepository extends JpaRepository<CartDetail, CartDeta
     List<CartDetail> findByCart(Cart cart);
 
     Optional<CartDetail> findByCartAndProductAndProductSize(Cart cart, Product product, ProductSize productSize);
+
+    boolean existsByProductSize(ProductSize productSize);
+
     @Modifying
     @Transactional
     @Query(value = "DELETE FROM cart_detail WHERE cart_id = :cartId", nativeQuery = true)

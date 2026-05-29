@@ -18,4 +18,8 @@ public interface UserRepository extends JpaRepository<Users, Integer>, JpaSpecif
     boolean existsByEmail(String email);
 
     boolean existsByUsername(String username);
+
+    Optional<Users> findByEmailVerifyToken(String token);
+
+    Optional<Users> findByResetPasswordToken(String token);
 }

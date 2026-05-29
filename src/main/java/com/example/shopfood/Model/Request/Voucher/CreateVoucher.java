@@ -1,13 +1,15 @@
 package com.example.shopfood.Model.Request.Voucher;
 
 import com.example.shopfood.Model.Entity.DiscountType;
-import com.example.shopfood.Model.Entity.VoucherStatus;
 import com.example.shopfood.Model.Entity.VoucherTarget;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.util.Date;
 import java.util.List;
@@ -15,47 +17,58 @@ import java.util.List;
 @Data
 public class CreateVoucher {
 
-    // ===== THÔNG TIN CƠ BẢN =====
     @NotBlank
+    @Size(max = 50)
     private String code;
 
-
+    @Size(max = 255)
     private String description;
 
-    // ===== KIỂU GIẢM GIÁ =====
     @NotNull
     private DiscountType discountType;
     // FIXED | PERCENT
 
     @NotNull
+    @Min(value = 1, message = "discountValue phải >= 1")
     private Integer discountValue;
 
-    // Giảm tối đa (chỉ dùng cho PERCENT)
+    @PositiveOrZero
     private Integer maxDiscount;
 
-    // ===== ĐIỀU KIỆN ĐƠN HÀNG =====
+    @PositiveOrZero
     private Integer minOrderValue;
 
-    // ===== GIỚI HẠN SỬ DỤNG =====
-    private Integer usageLimitGlobal;   // tổng lượt dùng
-    private Integer usageLimitPerUser;  // mỗi user
+    @PositiveOrZero
+    private Integer usageLimitGlobal;
 
-    // ===== ĐỐI TƯỢNG ÁP DỤNG =====
+    @PositiveOrZero
+    private Integer usageLimitPerUser;
+
     @NotNull
     private VoucherTarget target;
-    // PUBLIC | USER
+    // ALL | USER
 
-    // ===== THỜI GIAN =====
     @NotNull
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-
     private Date startDate;
 
     @NotNull
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private Date endDate;
 
-    // ===== USER RIÊNG =====
     private List<Integer> userIds;
-}
 
+    @AssertTrue(message = "PERCENT voucher: discountValue phải <= 100")
+    public boolean isPercentValid() {
+        if (discountType == DiscountType.PERCENT && discountValue != null) {
+            return discountValue <= 100;
+        }
+        return true;
+    }
+
+    @AssertTrue(message = "endDate phải sau startDate")
+    public boolean isDateRangeValid() {
+        if (startDate == null || endDate == null) return true;
+        return endDate.after(startDate);
+    }
+}

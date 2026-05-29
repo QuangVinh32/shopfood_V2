@@ -15,4 +15,5 @@ public class LoginDTO {
     private Role role;
     private String userAgent;
     private String token;
+    private String refreshToken;
 }

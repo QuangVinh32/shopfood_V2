@@ -139,14 +139,11 @@ public class ProductController {
 
     @GetMapping({"/user/{id}"})
     public ResponseEntity<ProductForUser> findProductByIdForUser(@PathVariable int id) {
-//        System.out.println("Fetching product with ID: " + id);
         ProductForUser productDTOv2 = productService.getProductByIdForUser(id);
         if (productDTOv2 != null) {
             return ResponseEntity.ok(productDTOv2);
-        } else {
-            System.out.println("Product with ID " + id + " not found");
-            return ResponseEntity.notFound().build();
         }
+        return ResponseEntity.notFound().build();
     }
 
 

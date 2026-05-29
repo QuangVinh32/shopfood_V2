@@ -6,7 +6,9 @@ import com.example.shopfood.Model.Entity.*;
 import com.example.shopfood.Model.Request.Order.UpdateOrder;
 import com.example.shopfood.Model.Request.Order.FilterOrder;
 import com.example.shopfood.Repository.*;
+import com.example.shopfood.Service.IEmailService;
 import com.example.shopfood.Service.IOrderService;
+import com.example.shopfood.Service.IShippingFeeCalculator;
 import com.example.shopfood.Specification.OrderSpecification;
 import com.example.shopfood.Utils.CurrentUserUtil;
 import jakarta.transaction.Transactional;
@@ -45,13 +47,55 @@ public class OrderService implements IOrderService {
     private CartDetailRepository cartDetailRepository;
 
     @Autowired
-    private VoucherService voucherService;
+    private com.example.shopfood.Service.IVoucherService voucherService;
 
     @Autowired
     private  ProductSizeRepository productSizeRepository;
 
     @Autowired
     private CurrentUserUtil currentUserUtil;
+
+    @Autowired
+    private ShippingAddressRepository shippingAddressRepository;
+
+    @Autowired
+    private IShippingFeeCalculator shippingFeeCalculator;
+
+    @Autowired
+    private OrderStatusHistoryRepository orderStatusHistoryRepository;
+
+    @Autowired
+    private IEmailService emailService;
+
+    private void sendOrderConfirmation(Order order) {
+        try {
+            java.util.Map<String, Object> vars = new java.util.HashMap<>();
+            vars.put("orderId", order.getOrderId());
+            vars.put("fullName", order.getUser().getFullName());
+            vars.put("originalAmount", order.getOriginalAmount());
+            vars.put("discountAmount", order.getDiscountAmount());
+            vars.put("shippingFee", order.getShippingFee());
+            vars.put("totalAmount", order.getTotalAmount());
+            emailService.sendHtml(order.getUser().getEmail(),
+                    "Xác nhận đơn hàng #" + order.getOrderId(),
+                    "order-confirmation", vars);
+        } catch (Exception ignored) {
+            // log handled in EmailService; không block luồng order
+        }
+    }
+
+    private void recordStatusChange(Order order, OrderStatus from, OrderStatus to, String note) {
+        OrderStatusHistory h = new OrderStatusHistory();
+        h.setOrder(order);
+        h.setFromStatus(from);
+        h.setToStatus(to);
+        h.setChangedAt(new Date());
+        h.setNote(note);
+        try {
+            h.setChangedBy(currentUserUtil.currentUser());
+        } catch (Exception ignored) { /* system change */ }
+        orderStatusHistoryRepository.save(h);
+    }
 
     private void assertOwnerOrAdmin(Order order) {
         Users me = currentUserUtil.currentUser();
@@ -186,9 +230,104 @@ public class OrderService implements IOrderService {
             voucherService.applyVoucher(order.getOrderId(), voucherCode);
         }
 
+        recordStatusChange(order, null, OrderStatus.PENDING, "Order created");
+
         // XÓA GIỎ HÀNG - nếu fail, rollback cả transaction (trừ kho + tạo order)
         cartDetailRepository.deleteByCartIdNative(cart.getCartId());
         cartRepository.deleteCartByIdNative(cart.getCartId());
+
+        sendOrderConfirmation(order);
+    }
+
+    @Transactional
+    @Override
+    public Integer createOrderFull(Integer shippingAddressId, String voucherCode, String note) throws Exception {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        Users user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        ShippingAddress addr = shippingAddressRepository.findByIdAndUser(shippingAddressId, user)
+                .orElseThrow(() -> new IllegalArgumentException("Địa chỉ giao hàng không hợp lệ"));
+
+        Cart cart = cartRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Cart not found"));
+        if (cart.getCartDetails().isEmpty()) {
+            throw new IllegalArgumentException("Giỏ hàng trống");
+        }
+
+        Order order = new Order();
+        order.setCreatedAt(new Date());
+        order.setOrderStatus(OrderStatus.PENDING);
+        order.setUser(user);
+        order.setReceiverName(addr.getReceiverName());
+        order.setReceiverPhone(addr.getReceiverPhone());
+        order.setShippingAddress(buildFullAddress(addr));
+        order.setNote(note);
+        orderRepository.save(order);
+
+        double subtotal = 0.0;
+        List<CartDetail> cartDetails = new ArrayList<>(cart.getCartDetails());
+        for (CartDetail cartDetail : cartDetails) {
+            Product product = cartDetail.getProduct();
+            ProductSize productSize = cartDetail.getProductSize();
+            if (productSize == null) {
+                throw new IllegalArgumentException("Thiếu thông tin size cho sản phẩm: " + product.getProductName());
+            }
+
+            int updated = productSizeRepository.decreaseStock(
+                    productSize.getProductSizeId(), cartDetail.getQuantity());
+            if (updated == 0) {
+                throw new IllegalArgumentException("Không đủ tồn kho: " + product.getProductName()
+                        + " - " + productSize.getSizeName());
+            }
+
+            double itemPrice = productSize.getPrice();
+            int discount = productSize.getDiscount() != null ? productSize.getDiscount() : 0;
+            double discountedPrice = itemPrice * (100 - discount) / 100.0;
+            double itemTotal = discountedPrice * cartDetail.getQuantity();
+            subtotal += itemTotal;
+
+            OrderDetail od = new OrderDetail();
+            od.setOrder(order);
+            od.setProduct(product);
+            od.setProductSize(productSize);
+            od.setSizeName(productSize.getSizeName().toString());
+            od.setQuantity(cartDetail.getQuantity());
+            od.setPrice(discountedPrice);
+            od.setDiscountApplied(discount);
+            orderDetailRepository.save(od);
+        }
+
+        int roundedSubtotal = (int) Math.round(subtotal);
+        int shippingFee = shippingFeeCalculator.calculate(roundedSubtotal, addr.getProvince());
+
+        order.setOriginalAmount(roundedSubtotal);
+        order.setDiscountAmount(0);
+        order.setShippingFee(shippingFee);
+        order.setTotalAmount(roundedSubtotal + shippingFee);
+        orderRepository.save(order);
+
+        if (voucherCode != null && !voucherCode.isBlank()) {
+            // applyVoucher tự tính total = subtotal - discount + shippingFee
+            voucherService.applyVoucher(order.getOrderId(), voucherCode);
+        }
+
+        recordStatusChange(order, null, OrderStatus.PENDING, "Order created");
+
+        cartDetailRepository.deleteByCartIdNative(cart.getCartId());
+        cartRepository.deleteCartByIdNative(cart.getCartId());
+
+        sendOrderConfirmation(order);
+
+        return order.getOrderId();
+    }
+
+    private String buildFullAddress(ShippingAddress a) {
+        StringBuilder sb = new StringBuilder(a.getAddressLine());
+        if (a.getWard() != null && !a.getWard().isBlank()) sb.append(", ").append(a.getWard());
+        if (a.getDistrict() != null && !a.getDistrict().isBlank()) sb.append(", ").append(a.getDistrict());
+        if (a.getProvince() != null && !a.getProvince().isBlank()) sb.append(", ").append(a.getProvince());
+        return sb.toString();
     }
 
 
@@ -213,20 +352,22 @@ public class OrderService implements IOrderService {
             }
         }
 
-        // Nếu hủy đơn hàng (từ PENDING -> CANCELLED), hoàn lại số lượng tồn kho THEO SIZE
-        if (updateOrder.getStatus() == OrderStatus.CANCELED &&
-                order.getOrderStatus() == OrderStatus.PENDING) {
+        OrderStatus oldStatus = order.getOrderStatus();
+        OrderStatus newStatus = updateOrder.getStatus();
+
+        // Hủy đơn từ PENDING/CONFIRMED → hoàn kho + hoàn voucher
+        boolean restoreStock = (newStatus == OrderStatus.CANCELED || newStatus == OrderStatus.RETURNED)
+                && oldStatus != OrderStatus.CANCELED
+                && oldStatus != OrderStatus.RETURNED;
+
+        if (restoreStock) {
             for (OrderDetail orderDetail : order.getOrderDetails()) {
                 ProductSize productSize = orderDetail.getProductSize();
                 if (productSize != null) {
-                    // HOÀN LẠI SỐ LƯỢNG THEO SIZE
                     productSize.setQuantity(productSize.getQuantity() + orderDetail.getQuantity());
                     productSizeRepository.save(productSize);
                 }
-                // KHÔNG CẦN XỬ LÝ Product vì không có quantity
             }
-
-            // HOÀN LẠI VOUCHER (usedCount + userVoucher.usedCount)
             if (order.getVoucher() != null) {
                 voucherService.rollbackVoucher(order);
             }
@@ -249,8 +390,11 @@ public class OrderService implements IOrderService {
             }
         }
 
-        order.setOrderStatus(updateOrder.getStatus());
+        order.setOrderStatus(newStatus);
         Order savedOrder = orderRepository.save(order);
+
+        recordStatusChange(savedOrder, oldStatus, newStatus, null);
+
         List<OrderDetailDTO> detailDTOs = savedOrder.getOrderDetails()
                 .stream()
                 .map(detail -> {
@@ -330,19 +474,23 @@ public class OrderService implements IOrderService {
         return orderRepository.findAll(spec, pageable).map(this::toDTO);
     }
 
-    // ===== DOANH THU - chỉ tính đơn COMPLETED =====
+    // ===== DOANH THU - tính đơn DELIVERED + COMPLETED =====
+    // Cả 2 status đều đã thu được tiền thật sự
+    private static final java.util.Set<OrderStatus> REVENUE_STATUSES =
+            java.util.EnumSet.of(OrderStatus.DELIVERED, OrderStatus.COMPLETED);
+
     @Override
     public Long getTotalRevenue() {
-        return orderRepository.sumTotalAmountByStatus(OrderStatus.COMPLETED);
+        return orderRepository.sumTotalAmountByStatuses(REVENUE_STATUSES);
     }
 
     @Override
     public Long getTotalOriginalRevenue() {
-        return orderRepository.sumOriginalAmountByStatus(OrderStatus.COMPLETED);
+        return orderRepository.sumOriginalAmountByStatuses(REVENUE_STATUSES);
     }
 
     @Override
     public Long getTotalDiscount() {
-        return orderRepository.sumDiscountAmountByStatus(OrderStatus.COMPLETED);
+        return orderRepository.sumDiscountAmountByStatuses(REVENUE_STATUSES);
     }
 }
