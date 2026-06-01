@@ -16,14 +16,15 @@ import com.example.shopfood.Model.Entity.RefreshToken;
 import com.example.shopfood.Model.Entity.Role;
 import com.example.shopfood.Model.Entity.Users;
 import com.example.shopfood.Model.Request.User.LoginRequest;
-import com.example.shopfood.Model.Request.User.RefreshRequest;
 import com.example.shopfood.Model.Request.User.UserRequest;
 import com.example.shopfood.Repository.TokenRepository;
 import com.example.shopfood.Repository.UserRepository;
 import com.example.shopfood.Service.IEmailVerificationService;
 import com.example.shopfood.Service.IFileService;
 import com.example.shopfood.Service.IRefreshTokenService;
+import com.example.shopfood.Utils.CookieUtils;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,7 @@ public class AuthController {
     @Autowired private IRefreshTokenService refreshTokenService;
     @Autowired private IEmailVerificationService emailVerificationService;
     @Autowired private TokenRepository tokenRepository;
+    @Autowired private CookieUtils cookieUtils;
 
     @Value("${app.public.base-url:http://localhost:8080}")
     private String publicBaseUrl;
@@ -60,7 +62,7 @@ public class AuthController {
     private final ConcurrentMap<String, LocalDateTime> lockoutMap = new ConcurrentHashMap<>();
 
     @PostMapping("/login")
-    public LoginDTO loginJWT(@RequestBody @Valid LoginRequest request) {
+    public LoginDTO loginJWT(@RequestBody @Valid LoginRequest request, HttpServletResponse response) {
         String username = request.getUsername();
         String ip = httpServletRequest.getRemoteAddr();
         String key = (username == null ? "" : username) + ":" + ip;
@@ -106,16 +108,19 @@ public class AuthController {
         loginDTO.setUserAgent(httpServletRequest.getHeader("User-Agent"));
         loginDTO.setToken(jwtTokenUtils.createAccessToken(loginDTO));
 
-        // Cấp refresh token + trả ra trong response
+        // Cấp refresh token + set vào HttpOnly cookie (không trả trong body)
         RefreshToken rt = refreshTokenService.issue(user, httpServletRequest);
-        loginDTO.setRefreshToken(rt.getToken());
+        cookieUtils.setRefreshTokenCookie(response, rt.getToken());
 
         return loginDTO;
     }
 
     @PostMapping("/auth/refresh")
-    public ResponseEntity<TokenPairDTO> refresh(@RequestBody @Valid RefreshRequest req) {
-        RefreshToken newRt = refreshTokenService.rotate(req.getRefreshToken(), httpServletRequest);
+    public ResponseEntity<TokenPairDTO> refresh(HttpServletResponse response) {
+        String oldToken = cookieUtils.readRefreshTokenCookie(httpServletRequest)
+                .orElseThrow(() -> new AppException(ErrorResponseBase.INVALID_CREDENTIAL));
+
+        RefreshToken newRt = refreshTokenService.rotate(oldToken, httpServletRequest);
 
         // Tạo access token mới từ user của refresh
         Users user = newRt.getUser();
@@ -124,20 +129,28 @@ public class AuthController {
         loginDTO.setUserAgent(httpServletRequest.getHeader("User-Agent"));
         String accessToken = jwtTokenUtils.createAccessToken(loginDTO);
 
-        return ResponseEntity.ok(new TokenPairDTO(accessToken, newRt.getToken(), accessTokenExpirationMs));
+        // Set refresh token mới vào cookie, không trả ra body
+        cookieUtils.setRefreshTokenCookie(response, newRt.getToken());
+
+        return ResponseEntity.ok(new TokenPairDTO(accessToken, null, accessTokenExpirationMs));
     }
 
     @PostMapping("/auth/logout")
-    public ResponseEntity<?> logout(@RequestBody @Valid RefreshRequest req,
-                                    @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // Revoke refresh token
-        refreshTokenService.revoke(req.getRefreshToken());
+    public ResponseEntity<?> logout(@RequestHeader(value = "Authorization", required = false) String authHeader,
+                                    HttpServletResponse response) {
+        // Revoke refresh token (đọc từ cookie nếu có)
+        cookieUtils.readRefreshTokenCookie(httpServletRequest)
+                .ifPresent(refreshTokenService::revoke);
 
         // Xóa access token khỏi DB → JwtRequestFilter sẽ reject các request kế tiếp
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String accessToken = authHeader.substring(7).trim();
             tokenRepository.deleteByTokenValue(accessToken);
         }
+
+        // Clear cookie ở phía client
+        cookieUtils.clearRefreshTokenCookie(response);
+
         return ResponseEntity.ok("Đã đăng xuất");
     }
 

@@ -260,6 +260,9 @@ public class OrderService implements IOrderService {
         cartDetailRepository.deleteByCartIdNative(cart.getCartId());
         cartRepository.deleteCartByIdNative(cart.getCartId());
 
+        // Legacy: default COD payment để khi COMPLETED có record để mark SUCCESS
+        createCodPayment(order);
+
         sendOrderConfirmation(order);
     }
 
