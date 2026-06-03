@@ -56,16 +56,21 @@ public class ProductController {
 
             // Category status, check null để tránh lỗi
             if (product.getCategory() != null) {
-                dto.setCategoryId(product.getCategory().getCategoryId()); // Thếu dòng này
+                dto.setCategoryId(product.getCategory().getCategoryId());
                 dto.setCategoryStatus(product.getCategory().getCategoryStatus());
-//                dto.setCategoryImage((product.getCategory().getCategoryImage()));
-                String fileName = Paths.get(product.getCategory().getCategoryImage())
-                        .getFileName()
-                        .toString();
 
-                dto.setCategoryImage(
-                        "http://localhost:8080/files/image/" + fileName
-                );
+                String categoryImage = product.getCategory().getCategoryImage();
+
+                if (categoryImage != null && !categoryImage.isBlank()) {
+
+                    String fileName = Paths.get(categoryImage)
+                            .getFileName()
+                            .toString();
+
+                    dto.setCategoryImage(
+                            "http://localhost:8080/files/image/" + fileName
+                    );
+                }
             }
 
             // Map hình ảnh sang URL
