@@ -19,6 +19,9 @@ public class Product {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "total_sold")
+    private int totalSold = 0;
+
     @ManyToOne
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
