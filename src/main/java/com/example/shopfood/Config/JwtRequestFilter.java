@@ -43,6 +43,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                     "/api/products/find-by-id/**",
                     "/api/categories/get-all",
                     "/api/product_sizes/product/**",
+
                     "/files/image/**",
                     "/api/auth/verify-email",
                     "/swagger-ui.html",

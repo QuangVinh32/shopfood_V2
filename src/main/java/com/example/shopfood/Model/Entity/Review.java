@@ -1,5 +1,6 @@
 package com.example.shopfood.Model.Entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -22,12 +23,16 @@ public class Review {
     )
     private Integer reviewId;
     @ManyToOne
+    @JsonIgnore
+
     @JoinColumn(
             name = "product_id",
             nullable = false
     )
     private Product product;
     @ManyToOne
+    @JsonIgnore
+
     @JoinColumn(
             name = "user_id",
             nullable = false

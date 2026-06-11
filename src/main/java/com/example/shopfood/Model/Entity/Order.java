@@ -1,4 +1,5 @@
 package com.example.shopfood.Model.Entity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -45,6 +46,7 @@ public class Order {
     )
     private Date createdAt;
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(
             name = "user_id",
             nullable = false

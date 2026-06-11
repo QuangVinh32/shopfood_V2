@@ -63,5 +63,7 @@ public class FileService implements IFileService {
         fileRepository.save(newFile);
 
         return target.toString();
+//        return safeName; // ✅ chỉ trả về tên file: abc123.jpg
+
     }
 }

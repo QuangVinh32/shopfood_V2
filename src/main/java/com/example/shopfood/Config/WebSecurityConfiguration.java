@@ -71,7 +71,9 @@ public class WebSecurityConfiguration {
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/actuator/health"
+                                "/actuator/health",
+                                "/api/banners",
+                                "/api/banners/**"
                         ).permitAll()
 
                         // ADMIN-ONLY
